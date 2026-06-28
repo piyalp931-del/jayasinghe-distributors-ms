@@ -35,6 +35,12 @@ function formatCurrency(amount) {
     return sym + Number(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+function formatCurrencyShort(amount) {
+    if (amount === undefined || amount === null || isNaN(amount)) amount = 0;
+    const sym = state.settings.currency === 'LKR' ? 'Rs. ' : state.settings.currency === 'USD' ? '$ ' : '€ ';
+    return sym + Number(amount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
@@ -50,6 +56,10 @@ function formatDate(dateStr) {
 
 function getToday() {
     return new Date().toISOString().split('T')[0];
+}
+
+function getCurrentDateTime() {
+    return new Date().toLocaleString();
 }
 
 function generateId() {
@@ -82,6 +92,33 @@ function showConfirm(title, body) {
     });
 }
 
+function updateLastUpdated() {
+    const el = $('lastUpdated');
+    if (el) el.textContent = 'Last updated: ' + getCurrentDateTime();
+}
+
+// ================================================================
+// LOGOUT FUNCTION (Reusable)
+// ================================================================
+async function performLogout() {
+    const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
+    if (!ok) return;
+    try {
+        await auth.signOut();
+        showToast('Logged out successfully');
+        // Reset UI
+        $('loginPage').style.display = 'flex';
+        $('mainApp').style.display = 'none';
+        // Clear state
+        state.currentUser = null;
+        state.userRole = 'viewer';
+        // Reload to clean state
+        setTimeout(() => location.reload(), 500);
+    } catch (err) {
+        showToast('Error during logout: ' + err.message, 'danger');
+    }
+}
+
 // ================================================================
 // AUTH
 // ================================================================
@@ -105,14 +142,27 @@ function checkAuth() {
                 state.userRole = 'viewer';
             }
             const email = user.email || 'U';
-            $('userAvatar').textContent = email.charAt(0).toUpperCase();
+            const displayName = email.split('@')[0] || 'User';
+            $('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+            $('userDisplayName').textContent = displayName;
+            $('userEmailDisplay').textContent = email;
+            $('userRoleBadge').textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
             await loadAllData();
             applyRoleRestrictions();
             initDashboard();
             updateChequeBadge();
+            updateTopbarStats();
+            updateLastUpdated();
         } else {
             showToast('Please login to continue.', 'warning');
-            demoLogin();
+            // Check if we should auto-login as demo
+            const autoDemo = localStorage.getItem('jdms-auto-demo') === 'true';
+            if (autoDemo) {
+                demoLogin();
+            } else {
+                $('loginPage').style.display = 'flex';
+                $('mainApp').style.display = 'none';
+            }
         }
     });
 }
@@ -122,17 +172,27 @@ async function demoLogin() {
         state.currentUser = { uid: 'demo-user', email: 'demo@jdms.com' };
         state.userRole = 'admin';
         $('userAvatar').textContent = 'D';
+        $('userDisplayName').textContent = 'Demo';
+        $('userEmailDisplay').textContent = 'demo@jdms.com';
+        $('userRoleBadge').textContent = 'Admin';
         await loadAllData();
         applyRoleRestrictions();
         initDashboard();
         updateChequeBadge();
+        updateTopbarStats();
+        updateLastUpdated();
+        $('loginPage').style.display = 'none';
+        $('mainApp').style.display = 'block';
         showToast('Demo mode: Logged in as Admin', 'info');
+        localStorage.setItem('jdms-auto-demo', 'true');
     } catch (e) {
+        console.error('Demo login error:', e);
         document.body.innerHTML =
             `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;padding:24px;text-align:center;">
                 <h2>🔐 Authentication Required</h2>
                 <p>Please set up Firebase Authentication or use a valid login.</p>
                 <p style="font-size:13px;color:#64748b;">Check firebase-config.js and enable Email/Password auth.</p>
+                <button class="btn btn-primary" onclick="demoLogin()">Retry Demo Login</button>
             </div>`;
     }
 }
@@ -144,6 +204,15 @@ function updateChequeBadge() {
         badge.textContent = pending;
         badge.style.display = pending > 0 ? 'inline' : 'none';
     }
+}
+
+function updateTopbarStats() {
+    const today = getToday();
+    const todayTxns = state.transactions.filter(t => t.date === today);
+    const cashToday = todayTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0), 0);
+    const pendingCheques = state.cheques.filter(c => c.status === 'pending').length;
+    if ($('topbarTodayCash')) $('topbarTodayCash').textContent = formatCurrencyShort(cashToday);
+    if ($('topbarPendingCheques')) $('topbarPendingCheques').textContent = pendingCheques;
 }
 
 // ================================================================
@@ -188,6 +257,7 @@ async function loadAllData() {
             }));
 
         renderAll();
+        updateTopbarStats();
 
     } catch (e) {
         console.error('Load error:', e);
@@ -207,6 +277,8 @@ function renderAll() {
     renderDashboardStats();
     populateSelects();
     updateChequeBadge();
+    updateTopbarStats();
+    updateLastUpdated();
 }
 
 // ================================================================
@@ -249,6 +321,7 @@ function initDashboard() {
     renderDashboardStats();
     renderRecentTransactions();
     renderDashboardChart();
+    updateTopbarStats();
 }
 
 function renderDashboardStats() {
@@ -276,6 +349,10 @@ function renderDashboardStats() {
     if ($('dashMonthlyExpenses')) $('dashMonthlyExpenses').textContent = formatCurrency(monthlyExpenses);
     if ($('dashProfit')) $('dashProfit').textContent = formatCurrency(profit);
     if ($('dashBanked')) $('dashBanked').textContent = formatCurrency(totalBanked);
+
+    // Update topbar stats
+    if ($('topbarTodayCash')) $('topbarTodayCash').textContent = formatCurrencyShort(cashToday);
+    if ($('topbarPendingCheques')) $('topbarPendingCheques').textContent = pendingCheques;
 }
 
 function renderRecentTransactions() {
@@ -355,6 +432,10 @@ function renderTransactions() {
     }
     if ($('txnCount')) $('txnCount').textContent = filtered.length + ' transactions';
 
+    // Calculate total
+    const totalAmount = filtered.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0), 0);
+    if ($('txnTotalAmount')) $('txnTotalAmount').textContent = 'Total: ' + formatCurrency(totalAmount);
+
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
@@ -432,6 +513,7 @@ window.editTransaction = async function(id) {
     $('txnDeleteBtn').style.display = 'inline-block';
     $('txnSaveBtn').textContent = 'Update';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('txnFormTitle').textContent = 'Edit Transaction';
 };
 
 window.deleteTransaction = async function(id) {
@@ -448,7 +530,16 @@ window.deleteTransaction = async function(id) {
     }
 };
 
+// ================================================================
+// TRANSACTION FORM EVENTS
+// ================================================================
 document.addEventListener('DOMContentLoaded', function() {
+    // Set today's date
+    if ($('txnDate')) $('txnDate').value = getToday();
+    if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
+    if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
+
+    // Transaction form submit
     $('transactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = $('txnEditId').value;
@@ -461,6 +552,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('txnUpdateBtn').style.display = 'none';
                 $('txnDeleteBtn').style.display = 'none';
                 $('txnEditId').value = '';
+                $('txnSaveBtn').textContent = 'Save';
+                $('txnFormTitle').textContent = 'Add Transaction';
             } else {
                 data.id = generateId();
                 data.createdAt = new Date().toISOString();
@@ -477,6 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Clear button
     $('txnClearBtn').addEventListener('click', () => {
         $('transactionForm').reset();
         $('txnDate').value = getToday();
@@ -484,6 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
         $('txnUpdateBtn').style.display = 'none';
         $('txnDeleteBtn').style.display = 'none';
         $('txnSaveBtn').textContent = 'Save';
+        $('txnFormTitle').textContent = 'Add Transaction';
         showToast('Form cleared', 'info');
     });
 
@@ -498,6 +593,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     $('txnSearch').addEventListener('input', renderTransactions);
 
+    // Refresh button
+    $('txnRefreshBtn').addEventListener('click', async () => {
+        await loadAllData();
+        renderAll();
+        initDashboard();
+        showToast('Data refreshed!', 'info');
+    });
+
+    // View Report button
+    $('txnViewReportBtn').addEventListener('click', () => {
+        navigateTo('reports');
+        setTimeout(() => {
+            $('reportType').value = 'monthly';
+            $('reportMonth').value = new Date().toISOString().slice(0, 7);
+            $('reportGenerateBtn').click();
+        }, 300);
+    });
+
+    // Export buttons
     $('txnExportExcel').addEventListener('click', () => {
         const data = state.transactions.map(t => ({
             ID: t.id,
@@ -546,45 +660,10 @@ document.addEventListener('DOMContentLoaded', function() {
     $('txnPrintBtn').addEventListener('click', () => {
         window.print();
     });
-});
 
-// ================================================================
-// CUSTOMERS CRUD
-// ================================================================
-function renderCustomers() {
-    const tbody = $('custTableBody');
-    const search = $('custSearch').value.toLowerCase();
-    let filtered = state.customers;
-    if (search) {
-        filtered = filtered.filter(c =>
-            (c.name || '').toLowerCase().includes(search) ||
-            (c.phone || '').includes(search) ||
-            (c.email || '').toLowerCase().includes(search)
-        );
-    }
-    if ($('custCount')) $('custCount').textContent = filtered.length + ' customers';
-
-    if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No customers</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(c => `
-            <tr>
-                <td><strong>${c.name}</strong></td>
-                <td>${c.phone || '-'}</td>
-                <td>${c.email || '-'}</td>
-                <td>${formatCurrency(c.creditLimit)}</td>
-                <td>${formatCurrency(c.balance || 0)}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editCustomer('${c.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer('${c.id}')"><i class="bi bi-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-}
-
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // CUSTOMERS
+    // ================================================================
     $('customerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = $('custEditId').value;
@@ -626,132 +705,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('custSearch').addEventListener('input', renderCustomers);
-
     $('custDeleteBtn').addEventListener('click', () => {
         const id = $('custEditId').value;
         if (id) deleteCustomer(id);
     });
-});
 
-window.editCustomer = function(id) {
-    const c = state.customers.find(c => c.id === id);
-    if (!c) return;
-    $('custEditId').value = id;
-    $('custName').value = c.name || '';
-    $('custPhone').value = c.phone || '';
-    $('custEmail').value = c.email || '';
-    $('custAddress').value = c.address || '';
-    $('custCreditLimit').value = c.creditLimit || '';
-    $('custDeleteBtn').style.display = 'inline-block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-window.deleteCustomer = async function(id) {
-    const ok = await showConfirm('Delete Customer', 'This will also remove all associated transactions?');
-    if (!ok) return;
-    try {
-        await db.collection('customers').doc(id).delete();
-        showToast('Customer deleted.');
-        await loadAllData();
-        renderAll();
-    } catch (err) {
-        showToast('Error: ' + err.message, 'danger');
-    }
-};
-
-// ================================================================
-// CHEQUES
-// ================================================================
-function renderCheques() {
-    const tbody = $('cheqTableBody');
-    const search = $('cheqSearch').value.toLowerCase();
-    const statusFilter = $('cheqStatusFilter').value;
-
-    let filtered = state.cheques;
-    if (search) {
-        filtered = filtered.filter(c =>
-            (c.route || '').toLowerCase().includes(search) ||
-            (c.customer || '').toLowerCase().includes(search) ||
-            (c.chequeNo || '').toLowerCase().includes(search) ||
-            (c.bank || '').toLowerCase().includes(search)
-        );
-    }
-    if (statusFilter) {
-        filtered = filtered.filter(c => c.status === statusFilter);
-    }
-
-    if ($('cheqPending')) $('cheqPending').textContent = state.cheques.filter(c => c.status === 'pending').length;
-    if ($('cheqCleared')) $('cheqCleared').textContent = state.cheques.filter(c => c.status === 'cleared').length;
-    if ($('cheqReturned')) $('cheqReturned').textContent = state.cheques.filter(c => c.status === 'returned').length;
-    if ($('cheqDeposited')) $('cheqDeposited').textContent = state.cheques.filter(c => c.status === 'deposited').length;
-    if ($('cheqCount')) $('cheqCount').textContent = filtered.length + ' cheques';
-
-    if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No cheques</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(c => `
-            <tr>
-                <td>${formatDate(c.date)}</td>
-                <td>${c.route || '-'}</td>
-                <td>${c.customer || '-'}</td>
-                <td><code>${c.chequeNo}</code></td>
-                <td>${c.bank || '-'}</td>
-                <td>${formatCurrency(c.amount)}</td>
-                <td>${formatDate(c.chequeDate)}</td>
-                <td><span class="badge-status ${c.status}">${c.status}</span></td>
-                <td>
-                    <select class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="updateChequeStatus('${c.id}', this.value)">
-                        <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
-                        <option value="cleared" ${c.status==='cleared'?'selected':''}>Cleared</option>
-                        <option value="returned" ${c.status==='returned'?'selected':''}>Returned</option>
-                        <option value="deposited" ${c.status==='deposited'?'selected':''}>Deposited</option>
-                    </select>
-                </td>
-            </tr>
-        `).join('');
-}
-
-window.updateChequeStatus = async function(txnId, newStatus) {
-    try {
-        await db.collection('transactions').doc(txnId).update({ chequeStatus: newStatus });
-        showToast('Cheque status updated to ' + newStatus);
-        await loadAllData();
-        renderAll();
-    } catch (err) {
-        showToast('Error: ' + err.message, 'danger');
-    }
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    $('cheqSearch').addEventListener('input', renderCheques);
-    $('cheqStatusFilter').addEventListener('change', renderCheques);
-});
-
-// ================================================================
-// ROUTES CRUD
-// ================================================================
-function renderRoutes() {
-    const tbody = $('routeTableBody');
-    if ($('routeCount')) $('routeCount').textContent = state.routes.length + ' routes';
-    if (!state.routes.length) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">No routes</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = state.routes.map((r, i) => `
-            <tr>
-                <td>${i+1}</td>
-                <td><strong>${r.name}</strong></td>
-                <td>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.id}')"><i class="bi bi-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-    populateSelects();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // ROUTES
+    // ================================================================
     $('routeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = $('routeName').value.trim();
@@ -782,45 +743,10 @@ document.addEventListener('DOMContentLoaded', function() {
         $('routeEditId').value = '';
         showToast('Form cleared', 'info');
     });
-});
 
-window.deleteRoute = async function(id) {
-    const ok = await showConfirm('Delete Route', 'Are you sure?');
-    if (!ok) return;
-    try {
-        await db.collection('routes').doc(id).delete();
-        showToast('Route deleted.');
-        await loadAllData();
-        renderAll();
-    } catch (err) {
-        showToast('Error: ' + err.message, 'danger');
-    }
-};
-
-// ================================================================
-// USERS CRUD
-// ================================================================
-function renderUsers() {
-    const tbody = $('userTableBody');
-    if ($('userCount')) $('userCount').textContent = state.users.length + ' users';
-    if (!state.users.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No users</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = state.users.map(u => `
-            <tr>
-                <td>${u.email}</td>
-                <td><span class="badge bg-primary">${u.role || 'viewer'}</span></td>
-                <td>${u.created ? formatDate(u.created) : '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editUser('${u.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.id}')"><i class="bi bi-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-}
-
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // USERS
+    // ================================================================
     $('userForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = $('userEmail').value.trim();
@@ -871,39 +797,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const id = $('userEditId').value;
         if (id) deleteUser(id);
     });
-});
 
-window.editUser = function(id) {
-    const u = state.users.find(u => u.id === id);
-    if (!u) return;
-    $('userEditId').value = id;
-    $('userEmail').value = u.email || '';
-    $('userPassword').value = '';
-    $('userRole').value = u.role || 'viewer';
-    $('userDeleteBtn').style.display = 'inline-block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-window.deleteUser = async function(id) {
-    if (id === state.currentUser?.uid) {
-        return showToast('Cannot delete yourself', 'warning');
-    }
-    const ok = await showConfirm('Delete User', 'Are you sure?');
-    if (!ok) return;
-    try {
-        await db.collection('users').doc(id).delete();
-        showToast('User deleted.');
-        await loadAllData();
-        renderAll();
-    } catch (err) {
-        showToast('Error: ' + err.message, 'danger');
-    }
-};
-
-// ================================================================
-// REPORTS
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // REPORTS
+    // ================================================================
     $('reportGenerateBtn').addEventListener('click', () => {
         const type = $('reportType').value;
         const month = $('reportMonth').value;
@@ -917,12 +814,36 @@ document.addEventListener('DOMContentLoaded', function() {
         $('reportMonth').value = new Date().toISOString().slice(0, 7);
         $('reportYear').value = new Date().getFullYear();
         $('reportRoute').value = '';
-        $('reportResult').innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
+        $('reportResult').innerHTML =
+            `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
         showToast('Filters cleared', 'info');
+    });
+
+    $('reportPrintBtn').addEventListener('click', () => {
+        const content = $('reportResult').innerHTML;
+        if (content.includes('No data')) {
+            return showToast('Generate a report first', 'warning');
+        }
+        const win = window.open('', '_blank');
+        win.document.write(`
+                <html><head><title>Report</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+                <style>body{padding:40px;}</style>
+                </head><body>
+                <div class="container">${content}</div>
+                <script>
+                    setTimeout(() => window.print(), 500);
+                <\/script>
+                </body></html>
+            `);
+        win.document.close();
     });
 
     $('reportExportPDF').addEventListener('click', () => {
         const content = $('reportResult').innerHTML;
+        if (content.includes('No data')) {
+            return showToast('Generate a report first', 'warning');
+        }
         const win = window.open('', '_blank');
         win.document.write(`
                 <html><head><title>Report</title>
@@ -955,94 +876,10 @@ document.addEventListener('DOMContentLoaded', function() {
         XLSX.writeFile(wb, `Report_${getToday()}.xlsx`);
         showToast('Report exported!');
     });
-});
 
-function generateReport(type, month, year, route) {
-    const container = $('reportResult');
-    let data = [...state.transactions];
-
-    if (type === 'daily' && month) {
-        data = data.filter(t => t.date === month);
-    } else if (type === 'weekly') {
-        const today = new Date();
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekAgoStr = weekAgo.toISOString().split('T')[0];
-        data = data.filter(t => t.date >= weekAgoStr && t.date <= getToday());
-    } else if (type === 'monthly' && month) {
-        data = data.filter(t => t.date && t.date.startsWith(month));
-    } else if (type === 'yearly' && year) {
-        data = data.filter(t => t.date && t.date.startsWith(year));
-    } else if (type === 'route' && route) {
-        data = data.filter(t => t.route === route);
-    } else if (type === 'customer' && route) {
-        data = data.filter(t => t.customer === route);
-    } else if (type === 'expense') {
-        data = data.filter(t => parseFloat(t.expense) > 0);
-    } else if (type === 'petrol') {
-        data = data.filter(t => parseFloat(t.petrol) > 0);
-    } else if (type === 'credit') {
-        data = data.filter(t => parseFloat(t.credit) > 0);
-    } else if (type === 'bank') {
-        data = data.filter(t => parseFloat(t.banked) > 0);
-    } else if (type === 'cheque') {
-        data = data.filter(t => parseFloat(t.cheque) > 0);
-    }
-
-    const totalCash = data.reduce((s, t) => s + (parseFloat(t.cash) || 0), 0);
-    const totalCheque = data.reduce((s, t) => s + (parseFloat(t.cheque) || 0), 0);
-    const totalCredit = data.reduce((s, t) => s + (parseFloat(t.credit) || 0), 0);
-    const totalExpense = data.reduce((s, t) => s + (parseFloat(t.expense) || 0), 0);
-    const totalPetrol = data.reduce((s, t) => s + (parseFloat(t.petrol) || 0), 0);
-    const totalBanked = data.reduce((s, t) => s + (parseFloat(t.banked) || 0), 0);
-    const totalIncome = totalCash + totalCheque + totalCredit;
-    const totalCost = totalExpense + totalPetrol;
-    const profit = totalIncome - totalCost;
-
-    let html = `
-            <div class="table-responsive">
-                <h6 class="fw-semibold mb-3">Report: ${type.toUpperCase()} ${month||year||route?'('+(month||year||route)+')':''}</h6>
-                <p class="text-muted small">${data.length} transactions found</p>
-                <table class="table table-bordered">
-                    <thead><tr><th>Metric</th><th>Amount</th></tr></thead>
-                    <tbody>
-                        <tr><td>Total Cash</td><td>${formatCurrency(totalCash)}</td></tr>
-                        <tr><td>Total Cheque</td><td>${formatCurrency(totalCheque)}</td></tr>
-                        <tr><td>Total Credit</td><td>${formatCurrency(totalCredit)}</td></tr>
-                        <tr><td><strong>Total Income</strong></td><td><strong>${formatCurrency(totalIncome)}</strong></td></tr>
-                        <tr><td>Total Expense</td><td>${formatCurrency(totalExpense)}</td></tr>
-                        <tr><td>Total Petrol</td><td>${formatCurrency(totalPetrol)}</td></tr>
-                        <tr><td><strong>Total Cost</strong></td><td><strong>${formatCurrency(totalCost)}</strong></td></tr>
-                        <tr><td class="fw-bold text-success">Profit / Loss</td>
-                            <td class="fw-bold ${profit>=0?'text-success':'text-danger'}">${formatCurrency(profit)}</td></tr>
-                        <tr><td>Total Banked</td><td>${formatCurrency(totalBanked)}</td></tr>
-                    </tbody>
-                </table>
-                <hr />
-                <div style="max-height:300px;overflow-y:auto;">
-                    <table class="table table-sm">
-                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Expense</th></tr></thead>
-                        <tbody>
-                            ${data.slice(0,50).map(t => `<tr>
-                                <td>${formatDate(t.date)}</td>
-                                <td>${t.route||'-'}</td>
-                                <td>${formatCurrency(t.cash)}</td>
-                                <td>${formatCurrency(t.cheque)}</td>
-                                <td>${formatCurrency(t.credit)}</td>
-                                <td>${formatCurrency(t.expense)}</td>
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    container.innerHTML = html;
-}
-
-// ================================================================
-// BACKUP
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // BACKUP
+    // ================================================================
     let autoBackupInterval = null;
 
     $('backupExport').addEventListener('click', async () => {
@@ -1064,7 +901,9 @@ document.addEventListener('DOMContentLoaded', function() {
             URL.revokeObjectURL(url);
             showToast('Backup exported successfully!');
             const history = $('backupHistory');
-            history.innerHTML = `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` + history.innerHTML;
+            history.innerHTML =
+                `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` +
+                history.innerHTML;
         } catch (err) {
             showToast('Error: ' + err.message, 'danger');
         }
@@ -1120,12 +959,10 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Auto backup enabled (every 30 min)');
         }
     });
-});
 
-// ================================================================
-// SETTINGS
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
+    // ================================================================
+    // SETTINGS
+    // ================================================================
     $('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -1152,6 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showToast('Settings reset to defaults', 'info');
     });
 
+    // Theme
     const themeSwitch = $('settingsThemeSwitch');
     const themeToggle = $('themeToggle');
 
@@ -1172,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
     themeSwitch?.addEventListener('click', () => setTheme(!state.darkMode));
     themeToggle?.addEventListener('click', () => setTheme(!state.darkMode));
 
+    // Logo
     $('logoUploadBtn').addEventListener('click', () => $('logoFileInput').click());
     $('logoFileInput').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -1207,49 +1046,237 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Error: ' + err.message, 'danger');
         }
     });
-});
 
-// ================================================================
-// NAVIGATION
-// ================================================================
-function navigateTo(page) {
-    qsa('.page-section').forEach(el => el.classList.remove('active'));
-    const target = $('page-' + page);
-    if (target) target.classList.add('active');
+    // ================================================================
+    // SAMPLE DATA
+    // ================================================================
+    $('generateSampleDataBtn').addEventListener('click', async () => {
+        const btn = $('generateSampleDataBtn');
+        const status = $('sampleDataStatus');
+        const log = $('sampleDataLog');
 
-    qsa('.sidebar-nav .nav-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.page === page);
+        btn.disabled = true;
+        status.textContent = '⏳ Generating...';
+        log.innerHTML = '<div class="text-info">⏳ Generating sample data...</div>';
+
+        try {
+            const sampleRoutes = ['Colombo North', 'Colombo South', 'Kandy', 'Galle', 'Matara', 'Negombo', 'Kalutara'];
+            const sampleCustomers = [
+                'Lanka Traders', 'City Mart', 'Sunshine Stores', 'Green Valley', 'Ocean Enterprises',
+                'Royal Distributors', 'Prime Supplies', 'Lakshmi Stores', 'Ceylon Wholesale', 'Island Traders'
+            ];
+            const sampleChequeNos = ['CHQ-001', 'CHQ-002', 'CHQ-003', 'CHQ-004', 'CHQ-005'];
+
+            // Add routes
+            let routeCount = 0;
+            for (const route of sampleRoutes) {
+                if (!state.routes.some(r => r.name === route)) {
+                    await db.collection('routes').add({ name: route, createdAt: new Date().toISOString() });
+                    routeCount++;
+                }
+            }
+            log.innerHTML += `<div class="text-success">✅ Added ${routeCount} routes</div>`;
+
+            // Add customers
+            let custCount = 0;
+            for (const cust of sampleCustomers) {
+                if (!state.customers.some(c => c.name === cust)) {
+                    await db.collection('customers').add({
+                        name: cust,
+                        phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
+                        email: cust.toLowerCase().replace(/\s/g, '') + '@gmail.com',
+                        address: 'Colombo, Sri Lanka',
+                        creditLimit: Math.round((Math.random() * 100 + 10) * 100) / 100,
+                        balance: 0,
+                        createdAt: new Date().toISOString()
+                    });
+                    custCount++;
+                }
+            }
+            log.innerHTML += `<div class="text-success">✅ Added ${custCount} customers</div>`;
+
+            // Generate transactions for the last 30 days
+            let txnCount = 0;
+            const today = new Date();
+            const routes = sampleRoutes;
+            const customers = sampleCustomers;
+
+            for (let d = 29; d >= 0; d--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - d);
+                const dateStr = date.toISOString().split('T')[0];
+
+                // Skip weekends (Saturday=6, Sunday=0)
+                const day = date.getDay();
+                if (day === 0 || day === 6) continue;
+
+                // 3-5 transactions per day
+                const numTxns = 2 + Math.floor(Math.random() * 4);
+                for (let i = 0; i < numTxns; i++) {
+                    const route = routes[Math.floor(Math.random() * routes.length)];
+                    const customer = customers[Math.floor(Math.random() * customers.length)];
+                    const cash = Math.round((Math.random() * 50 + 5) * 100) / 100;
+                    const hasCheque = Math.random() > 0.6;
+                    const cheque = hasCheque ? Math.round((Math.random() * 30 + 5) * 100) / 100 : 0;
+                    const chequeNo = hasCheque ? sampleChequeNos[Math.floor(Math.random() * sampleChequeNos.length)] : null;
+                    const bank = hasCheque ? ['BOC', 'CBSL', 'Sampath', 'Commercial', 'HNB'][Math.floor(Math.random() * 5)] : null;
+                    const credit = Math.round((Math.random() * 20) * 100) / 100;
+                    const expense = Math.round((Math.random() * 10) * 100) / 100;
+                    const petrol = Math.round((Math.random() * 8) * 100) / 100;
+                    const banked = Math.round((Math.random() * 15) * 100) / 100;
+                    const km = Math.round(100 + Math.random() * 400);
+
+                    const txn = {
+                        id: generateId(),
+                        date: dateStr,
+                        route: route,
+                        customer: customer,
+                        cash: cash,
+                        cheque: cheque,
+                        chequeNo: chequeNo,
+                        bank: bank,
+                        branch: 'Branch ' + (Math.floor(Math.random() * 5) + 1),
+                        chequeDate: hasCheque ? dateStr : null,
+                        credit: credit,
+                        advance: 0,
+                        expense: expense,
+                        expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math.random() * 4)] : null,
+                        petrol: petrol,
+                        km: km.toString(),
+                        banked: banked,
+                        primary: customer.split(' ')[0],
+                        driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
+                        notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
+                        chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() * 3)] : 'pending',
+                        createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2, '0') + ':00:00').toISOString()
+                    };
+
+                    await db.collection('transactions').add(txn);
+                    txnCount++;
+                }
+            }
+
+            log.innerHTML += `<div class="text-success">✅ Added ${txnCount} transactions</div>`;
+            log.innerHTML += `<div class="text-info">🎉 Sample data generation complete!</div>`;
+            status.textContent = '✅ Done!';
+            showToast(`Generated ${txnCount} transactions, ${custCount} customers, ${routeCount} routes`, 'success');
+
+            await loadAllData();
+            renderAll();
+            initDashboard();
+
+        } catch (err) {
+            log.innerHTML += `<div class="text-danger">❌ Error: ${err.message}</div>`;
+            status.textContent = '❌ Error';
+            showToast('Error generating sample data: ' + err.message, 'danger');
+            console.error(err);
+        }
+        btn.disabled = false;
     });
 
-    const titles = {
-        dashboard: 'Dashboard',
-        transactions: 'Transactions',
-        customers: 'Customers',
-        cheques: 'Cheque Management',
-        routes: 'Routes',
-        reports: 'Reports',
-        users: 'Users',
-        backup: 'Backup',
-        settings: 'Settings'
-    };
-    if ($('pageTitle')) $('pageTitle').textContent = titles[page] || page;
+    // Clear all data
+    $('clearSampleDataBtn').addEventListener('click', async () => {
+        const ok = await showConfirm('Clear All Data', 'This will delete ALL transactions, customers, and routes. Are you sure?');
+        if (!ok) return;
 
-    closeSidebar();
+        const log = $('sampleDataLog');
+        const status = $('sampleDataStatus');
+        status.textContent = '⏳ Clearing...';
+        log.innerHTML = '<div class="text-warning">⏳ Clearing all data...</div>';
 
-    if (page === 'dashboard') initDashboard();
-    if (page === 'transactions') renderTransactions();
-    if (page === 'cheques') renderCheques();
-    if (page === 'reports') {
-        if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
-        if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
+        try {
+            // Delete all transactions
+            const txns = await db.collection('transactions').get();
+            let count = 0;
+            for (const doc of txns.docs) {
+                await db.collection('transactions').doc(doc.id).delete();
+                count++;
+            }
+            log.innerHTML += `<div class="text-danger">🗑️ Deleted ${count} transactions</div>`;
+
+            // Delete all customers
+            const custs = await db.collection('customers').get();
+            let custCount = 0;
+            for (const doc of custs.docs) {
+                await db.collection('customers').doc(doc.id).delete();
+                custCount++;
+            }
+            log.innerHTML += `<div class="text-danger">🗑️ Deleted ${custCount} customers</div>`;
+
+            // Delete all routes
+            const routes = await db.collection('routes').get();
+            let routeCount = 0;
+            for (const doc of routes.docs) {
+                await db.collection('routes').doc(doc.id).delete();
+                routeCount++;
+            }
+            log.innerHTML += `<div class="text-danger">🗑️ Deleted ${routeCount} routes</div>`;
+
+            log.innerHTML += `<div class="text-success">✅ All data cleared successfully!</div>`;
+            status.textContent = '✅ Cleared';
+            showToast('All data cleared successfully', 'info');
+
+            await loadAllData();
+            renderAll();
+            initDashboard();
+
+        } catch (err) {
+            log.innerHTML += `<div class="text-danger">❌ Error: ${err.message}</div>`;
+            status.textContent = '❌ Error';
+            showToast('Error clearing data: ' + err.message, 'danger');
+            console.error(err);
+        }
+    });
+
+    // ================================================================
+    // NAVIGATION
+    // ================================================================
+    function navigateTo(page) {
+        qsa('.page-section').forEach(el => el.classList.remove('active'));
+        const target = $('page-' + page);
+        if (target) target.classList.add('active');
+
+        qsa('.sidebar-nav .nav-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.page === page);
+        });
+
+        const titles = {
+            dashboard: 'Dashboard',
+            transactions: 'Transactions',
+            customers: 'Customers',
+            cheques: 'Cheque Management',
+            routes: 'Routes',
+            reports: 'Reports',
+            users: 'Users',
+            backup: 'Backup',
+            settings: 'Settings',
+            'sample-data': 'Sample Data'
+        };
+        if ($('pageTitle')) $('pageTitle').textContent = titles[page] || page;
+
+        closeSidebar();
+
+        if (page === 'dashboard') initDashboard();
+        if (page === 'transactions') renderTransactions();
+        if (page === 'cheques') renderCheques();
+        if (page === 'reports') {
+            if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
+            if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
+        }
+        if (page === 'sample-data') {
+            // Refresh the sample data page
+        }
     }
-}
 
-document.addEventListener('DOMContentLoaded', function() {
+    // Make navigateTo global
+    window.navigateTo = navigateTo;
+
+    // Sidebar navigation
     qsa('.sidebar-nav .nav-item[data-page]').forEach(el => {
         el.addEventListener('click', () => navigateTo(el.dataset.page));
     });
 
+    // Sidebar toggle
     const sidebar = $('sidebar');
     const overlay = $('sidebarOverlay');
 
@@ -1268,94 +1295,147 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     overlay.addEventListener('click', closeSidebar);
 
-    $('logoutBtn').addEventListener('click', async () => {
-        const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
-        if (!ok) return;
+    // ================================================================
+    // LOGOUT - Multiple triggers
+    // ================================================================
+    // Sidebar logout
+    $('logoutBtn').addEventListener('click', performLogout);
+
+    // Topbar logout (dropdown)
+    $('topbarLogoutBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        performLogout();
+    });
+
+    // Topbar logout (alternate)
+    $('topbarLogoutBtnAlt').addEventListener('click', performLogout);
+
+    // User settings / profile (placeholder)
+    $('userProfileBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        showToast('Profile page coming soon!', 'info');
+    });
+
+    $('userSettingsBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo('settings');
+        // Close dropdown
+        const dropdown = bootstrap.Dropdown.getInstance($('userDropdownToggle'));
+        if (dropdown) dropdown.hide();
+    });
+
+    // ================================================================
+    // CHEQUES (continued)
+    // ================================================================
+    window.updateChequeStatus = async function(txnId, newStatus) {
         try {
-            await auth.signOut();
-            showToast('Logged out');
-            location.reload();
+            await db.collection('transactions').doc(txnId).update({ chequeStatus: newStatus });
+            showToast('Cheque status updated to ' + newStatus);
+            await loadAllData();
+            renderAll();
         } catch (err) {
             showToast('Error: ' + err.message, 'danger');
         }
-    });
-});
+    };
 
-// ================================================================
-// NOTIFICATIONS
-// ================================================================
-function checkNotifications() {
-    const today = new Date();
-    const overdue = state.cheques.filter(c => {
-        if (c.status !== 'pending') return false;
-        const chqDate = new Date(c.chequeDate);
-        if (isNaN(chqDate)) return false;
-        const diff = (today - chqDate) / (1000 * 60 * 60 * 24);
-        return diff > 7;
-    });
+    $('cheqSearch').addEventListener('input', renderCheques);
+    $('cheqStatusFilter').addEventListener('change', renderCheques);
 
-    if (overdue.length > 0) {
-        const dot = $('notifDot');
-        if (dot) {
-            dot.style.display = 'block';
-            dot.textContent = overdue.length;
+    // ================================================================
+    // KEYBOARD SHORTCUTS
+    // ================================================================
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+T -> Transactions
+        if (e.ctrlKey && e.key === 't') {
+            e.preventDefault();
+            navigateTo('transactions');
         }
-        if (Notification.permission === 'granted') {
-            new Notification('JDMS - Overdue Cheques', {
-                body: `${overdue.length} cheque(s) are overdue by more than 7 days.`,
-                icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+        // Ctrl+R -> Reports
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            navigateTo('reports');
+        }
+        // Ctrl+D -> Dashboard
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            navigateTo('dashboard');
+        }
+        // Escape -> Close sidebar
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+
+    // ================================================================
+    // NOTIFICATIONS
+    // ================================================================
+    function checkNotifications() {
+        const today = new Date();
+        const overdue = state.cheques.filter(c => {
+            if (c.status !== 'pending') return false;
+            const chqDate = new Date(c.chequeDate);
+            if (isNaN(chqDate)) return false;
+            const diff = (today - chqDate) / (1000 * 60 * 60 * 24);
+            return diff > 7;
+        });
+
+        if (overdue.length > 0) {
+            const dot = $('notifDot');
+            if (dot) {
+                dot.style.display = 'block';
+                dot.textContent = overdue.length;
+            }
+            if (Notification.permission === 'granted') {
+                new Notification('JDMS - Overdue Cheques', {
+                    body: `${overdue.length} cheque(s) are overdue by more than 7 days.`,
+                    icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+                });
+            }
+        } else {
+            const dot = $('notifDot');
+            if (dot) dot.style.display = 'none';
+        }
+    }
+
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+    setInterval(checkNotifications, 300000);
+    setTimeout(checkNotifications, 3000);
+
+    // ================================================================
+    // ROLE RESTRICTIONS
+    // ================================================================
+    function applyRoleRestrictions() {
+        const role = state.userRole;
+        const isAdmin = role === 'admin';
+        const isManager = role === 'manager' || isAdmin;
+        const isViewer = role === 'viewer';
+
+        const adminItems = ['users', 'backup', 'settings', 'sample-data'];
+        adminItems.forEach(page => {
+            const el = qs(`.sidebar-nav .nav-item[data-page="${page}"]`);
+            if (el) el.style.display = isAdmin ? 'flex' : 'none';
+        });
+
+        if (isViewer) {
+            qsa('.btn-outline-primary, .btn-outline-danger, .btn-danger').forEach(el => {
+                if (el.closest('.table-wrapper') || el.closest('.stat-card')) {
+                    el.style.pointerEvents = 'none';
+                    el.style.opacity = '0.5';
+                }
+            });
+        } else {
+            qsa('.btn-outline-primary, .btn-outline-danger, .btn-danger').forEach(el => {
+                el.style.pointerEvents = '';
+                el.style.opacity = '';
             });
         }
-    } else {
-        const dot = $('notifDot');
-        if (dot) dot.style.display = 'none';
     }
-}
 
-if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-}
-setInterval(checkNotifications, 300000);
-setTimeout(checkNotifications, 3000);
-
-// ================================================================
-// ROLE RESTRICTIONS
-// ================================================================
-function applyRoleRestrictions() {
-    const role = state.userRole;
-    const isAdmin = role === 'admin';
-    const isManager = role === 'manager' || isAdmin;
-    const isViewer = role === 'viewer';
-
-    const adminItems = ['users', 'backup', 'settings'];
-    adminItems.forEach(page => {
-        const el = qs(`.sidebar-nav .nav-item[data-page="${page}"]`);
-        if (el) el.style.display = isAdmin ? 'flex' : 'none';
-    });
-
-    if (isViewer) {
-        qsa('.btn-outline-primary, .btn-outline-danger, .btn-danger').forEach(el => {
-            if (el.closest('.table-wrapper') || el.closest('.stat-card')) {
-                el.style.pointerEvents = 'none';
-                el.style.opacity = '0.5';
-            }
-        });
-    } else {
-        qsa('.btn-outline-primary, .btn-outline-danger, .btn-danger').forEach(el => {
-            el.style.pointerEvents = '';
-            el.style.opacity = '';
-        });
-    }
-}
-
-// ================================================================
-// INIT
-// ================================================================
-document.addEventListener('DOMContentLoaded', function() {
-    if ($('txnDate')) $('txnDate').value = getToday();
-    if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
-    if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
-
+    // ================================================================
+    // LOGIN
+    // ================================================================
     $('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = $('loginEmail').value;
@@ -1365,11 +1445,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         errorDiv.textContent = '';
         loginBtn.disabled = true;
-        loginBtn.innerHTML = 'Logging in...';
+        loginBtn.innerHTML = '<span class="loading-spinner"></span> Logging in...';
 
         try {
             await auth.signInWithEmailAndPassword(email, password);
+            localStorage.setItem('jdms-auto-demo', 'false');
             showToast('Login successful!', 'success');
+            $('loginPage').style.display = 'none';
+            $('mainApp').style.display = 'block';
         } catch (err) {
             errorDiv.textContent = err.message;
             loginBtn.disabled = false;
@@ -1377,20 +1460,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            $('loginPage').style.display = 'none';
-            $('mainApp').style.display = 'block';
-        } else {
-            $('loginPage').style.display = 'flex';
-            $('mainApp').style.display = 'none';
-        }
+    // Demo login button
+    $('demoLoginBtn').addEventListener('click', () => {
+        demoLogin();
     });
 
+    // ================================================================
+    // INIT
+    // ================================================================
+    // Check auth on load
     checkAuth();
 
     console.log('🚀 JDMS v2.0 initialized');
     console.log('📦 Jayasinghe Distributors Management System');
     console.log('🔷 Blue & Gold Theme');
     console.log('📊 Firebase + Chart.js + SheetJS');
+    console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
 });
