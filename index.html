@@ -32,6 +32,167 @@
 
     <!-- Local Stylesheet -->
     <link rel="stylesheet" href="style.css" />
+
+    <style>
+        /* User dropdown styles */
+        .user-dropdown-toggle {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .user-dropdown-toggle .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .user-dropdown-toggle .user-avatar:hover {
+            transform: scale(1.05);
+        }
+        .user-dropdown-toggle .user-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .user-dropdown-toggle .chevron {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .dropdown-menu.user-menu {
+            min-width: 200px;
+            padding: 8px 0;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+        }
+        .dropdown-menu.user-menu .dropdown-item {
+            padding: 8px 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+        }
+        .dropdown-menu.user-menu .dropdown-item:hover {
+            background: var(--bg);
+        }
+        .dropdown-menu.user-menu .dropdown-item i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+        .dropdown-menu.user-menu .dropdown-divider {
+            border-color: var(--border);
+            margin: 4px 0;
+        }
+        .dropdown-menu.user-menu .user-info-header {
+            padding: 8px 20px 4px 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .dropdown-menu.user-menu .user-email-display {
+            padding: 0 20px 8px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-all;
+        }
+        .topbar-actions .btn-icon.logout-btn-icon {
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .topbar-actions .btn-icon.logout-btn-icon:hover {
+            background: #fee2e2;
+            color: #dc2626;
+            border-color: #fecaca;
+        }
+        [data-theme="dark"] .topbar-actions .btn-icon.logout-btn-icon:hover {
+            background: #450a0a;
+            color: #f87171;
+            border-color: #7f1d1d;
+        }
+
+        /* Quick stats in topbar */
+        .topbar-stats {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .topbar-stats .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .topbar-stats .stat-item .num {
+            font-weight: 600;
+            color: var(--text);
+        }
+        @media (max-width: 768px) {
+            .topbar-stats {
+                display: none;
+            }
+            .user-dropdown-toggle .user-name {
+                display: none;
+            }
+            .user-dropdown-toggle .chevron {
+                display: none;
+            }
+        }
+
+        /* Quick action buttons in dashboard */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .quick-actions .btn {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 8px;
+        }
+
+        /* Toast improvements */
+        .toast-container .toast {
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Keyboard shortcut hint */
+        .kbd-hint {
+            font-size: 10px;
+            opacity: 0.5;
+            margin-left: 8px;
+            font-weight: 400;
+        }
+    </style>
 </head>
 <body>
 
@@ -83,6 +244,7 @@
                 </button>
                 <button class="nav-item" data-page="transactions">
                     <i class="bi bi-receipt"></i> Transactions
+                    <span class="kbd-hint">Ctrl+T</span>
                 </button>
                 <button class="nav-item" data-page="customers">
                     <i class="bi bi-people"></i> Customers
@@ -98,6 +260,7 @@
                 <div class="nav-label">Reports</div>
                 <button class="nav-item" data-page="reports">
                     <i class="bi bi-bar-chart-fill"></i> Reports
+                    <span class="kbd-hint">Ctrl+R</span>
                 </button>
 
                 <div class="nav-label">Admin</div>
@@ -135,11 +298,59 @@
                     <span class="page-title" id="pageTitle">Dashboard</span>
                 </div>
                 <div class="topbar-actions">
-                    <span class="badge bg-primary me-2" id="userRoleBadge">Admin</span>
+
+                    <!-- Quick Stats -->
+                    <div class="topbar-stats" id="topbarStats">
+                        <span class="stat-item">
+                            <i class="bi bi-cash-stack text-success"></i>
+                            <span class="num" id="topbarTodayCash">Rs. 0</span>
+                        </span>
+                        <span class="stat-item">
+                            <i class="bi bi-clock-history text-warning"></i>
+                            <span class="num" id="topbarPendingCheques">0</span>
+                        </span>
+                    </div>
+
+                    <!-- Theme Toggle -->
                     <button class="btn-icon" id="themeToggle" title="Toggle theme">
                         <i class="bi bi-moon-fill"></i>
                     </button>
-                    <div class="user-avatar" id="userAvatar" title="User">U</div>
+
+                    <!-- User Dropdown -->
+                    <div class="dropdown">
+                        <button class="user-dropdown-toggle" id="userDropdownToggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar" id="userAvatar">U</div>
+                            <span class="user-name" id="userDisplayName">User</span>
+                            <span class="chevron"><i class="bi bi-chevron-down"></i></span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end user-menu" aria-labelledby="userDropdownToggle">
+                            <li class="user-info-header">Signed in as</li>
+                            <li class="user-email-display" id="userEmailDisplay">user@example.com</li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <a class="dropdown-item" href="#" id="userProfileBtn">
+                                    <i class="bi bi-person-circle"></i> Profile
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" id="userSettingsBtn">
+                                    <i class="bi bi-gear"></i> Settings
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" id="topbarLogoutBtn">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Logout Button (visible on small screens) -->
+                    <button class="btn-icon logout-btn-icon d-none d-md-flex" id="topbarLogoutBtnAlt" title="Logout">
+                        <i class="bi bi-box-arrow-right"></i> <span class="d-none d-lg-inline">Logout</span>
+                    </button>
+
                 </div>
             </header>
 
@@ -148,6 +359,20 @@
 
                 <!-- ===== DASHBOARD ===== -->
                 <section class="page-section active" id="page-dashboard">
+                    <!-- Quick Actions -->
+                    <div class="quick-actions mb-4">
+                        <button class="btn btn-primary btn-sm" onclick="navigateTo('transactions')">
+                            <i class="bi bi-plus-circle"></i> New Transaction
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="navigateTo('reports')">
+                            <i class="bi bi-bar-chart"></i> View Reports
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="navigateTo('sample-data')">
+                            <i class="bi bi-database"></i> Load Sample Data
+                        </button>
+                        <span class="text-muted ms-auto" style="font-size:13px;" id="lastUpdated">Last updated: just now</span>
+                    </div>
+
                     <div class="row g-4 mb-4">
                         <div class="col-xl-3 col-lg-6 col-md-6">
                             <div class="stat-card">
