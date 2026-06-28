@@ -6,19 +6,26 @@
     <title>JDMS - Jayasinghe Distributors</title>
 
     <!-- Firebase Compat SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js">
+    </script>
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
     <!-- Chart.js, SheetJS, jsPDF -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+    </script>
 
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
@@ -48,7 +55,12 @@
                 <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
                 <div id="loginError" class="auth-error text-center mt-2"></div>
             </form>
-            <p class="text-center text-muted mt-3" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
+            <div class="text-center mt-3">
+                <button class="btn btn-outline-secondary btn-sm" id="demoLoginBtn">
+                    <i class="bi bi-play-circle"></i> Demo Login
+                </button>
+                <p class="text-muted mt-2" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
+            </div>
         </div>
     </div>
 
@@ -98,6 +110,9 @@
                 <button class="nav-item" data-page="settings">
                     <i class="bi bi-gear"></i> Settings
                 </button>
+                <button class="nav-item" data-page="sample-data" style="color:rgba(255,255,255,0.5);">
+                    <i class="bi bi-database-fill"></i> Sample Data
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <button class="nav-item" id="logoutBtn" style="justify-content:center;color:rgba(255,255,255,0.5);font-size:13px;margin-top:auto;">
@@ -120,10 +135,11 @@
                     <span class="page-title" id="pageTitle">Dashboard</span>
                 </div>
                 <div class="topbar-actions">
+                    <span class="badge bg-primary me-2" id="userRoleBadge">Admin</span>
                     <button class="btn-icon" id="themeToggle" title="Toggle theme">
                         <i class="bi bi-moon-fill"></i>
                     </button>
-                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div class="user-avatar" id="userAvatar" title="User">U</div>
                 </div>
             </header>
 
@@ -313,13 +329,14 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 flex-wrap">
-                                <button type="submit" class="btn btn-primary" id="txnSaveBtn">Save</button>
+                                <button type="submit" class="btn btn-primary" id="txnSaveBtn"><i class="bi bi-check-lg"></i> Save</button>
                                 <button type="button" class="btn btn-outline-secondary btn-clear" id="txnClearBtn"><i class="bi bi-eraser"></i> Clear</button>
-                                <button type="button" class="btn btn-outline-primary" id="txnUpdateBtn" style="display:none;">Update</button>
-                                <button type="button" class="btn btn-outline-danger" id="txnDeleteBtn" style="display:none;">Delete</button>
+                                <button type="button" class="btn btn-outline-primary" id="txnUpdateBtn" style="display:none;"><i class="bi bi-pencil"></i> Update</button>
+                                <button type="button" class="btn btn-outline-danger" id="txnDeleteBtn" style="display:none;"><i class="bi bi-trash"></i> Delete</button>
                                 <button type="button" class="btn btn-outline-success ms-auto" id="txnExportExcel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                                 <button type="button" class="btn btn-outline-danger" id="txnExportPDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                                 <button type="button" class="btn btn-outline-secondary" id="txnPrintBtn"><i class="bi bi-printer"></i> Print</button>
+                                <button type="button" class="btn btn-outline-info" id="txnViewReportBtn"><i class="bi bi-eye"></i> View Report</button>
                             </div>
                         </form>
                     </div>
@@ -328,6 +345,7 @@
                         <div class="table-header">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <span class="fw-semibold" id="txnCount">0 transactions</span>
+                                <button class="btn btn-sm btn-outline-info" id="txnRefreshBtn"><i class="bi bi-arrow-clockwise"></i></button>
                             </div>
                             <div class="search-box">
                                 <i class="bi bi-search"></i>
@@ -356,6 +374,7 @@
                         </div>
                         <div class="table-footer">
                             <span>Showing up to 50 records</span>
+                            <span class="text-muted" id="txnTotalAmount">Total: Rs. 0.00</span>
                         </div>
                     </div>
                 </section>
@@ -391,9 +410,9 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 flex-wrap">
-                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
                                 <button type="button" class="btn btn-outline-secondary btn-clear" id="custClearBtn"><i class="bi bi-eraser"></i> Clear</button>
-                                <button type="button" class="btn btn-outline-danger" id="custDeleteBtn" style="display:none;">Delete</button>
+                                <button type="button" class="btn btn-outline-danger" id="custDeleteBtn" style="display:none;"><i class="bi bi-trash"></i> Delete</button>
                             </div>
                         </form>
                     </div>
@@ -510,7 +529,7 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 flex-wrap">
-                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
                                 <button type="button" class="btn btn-outline-secondary btn-clear" id="routeClearBtn"><i class="bi bi-eraser"></i> Clear</button>
                             </div>
                         </form>
@@ -566,11 +585,12 @@
                                     <option value="">Select</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 d-flex align-items-end gap-2">
-                                <button class="btn btn-primary" id="reportGenerateBtn">Generate</button>
+                            <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
+                                <button class="btn btn-primary" id="reportGenerateBtn"><i class="bi bi-play-fill"></i> Generate</button>
                                 <button class="btn btn-outline-secondary btn-clear" id="reportClearBtn"><i class="bi bi-eraser"></i> Clear</button>
                                 <button class="btn btn-outline-success" id="reportExportExcel"><i class="bi bi-file-earmark-excel"></i></button>
                                 <button class="btn btn-outline-danger" id="reportExportPDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                                <button class="btn btn-outline-secondary" id="reportPrintBtn"><i class="bi bi-printer"></i></button>
                             </div>
                         </div>
                     </div>
@@ -605,9 +625,9 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 flex-wrap">
-                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>
                                 <button type="button" class="btn btn-outline-secondary btn-clear" id="userClearBtn"><i class="bi bi-eraser"></i> Clear</button>
-                                <button type="button" class="btn btn-outline-danger" id="userDeleteBtn" style="display:none;">Delete</button>
+                                <button type="button" class="btn btn-outline-danger" id="userDeleteBtn" style="display:none;"><i class="bi bi-trash"></i> Delete</button>
                             </div>
                         </form>
                     </div>
@@ -687,7 +707,7 @@
                                         </select>
                                     </div>
                                     <div class="d-flex gap-2 flex-wrap">
-                                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save Settings</button>
                                         <button type="button" class="btn btn-outline-secondary btn-clear" id="settingsClearBtn"><i class="bi bi-eraser"></i> Reset to Defaults</button>
                                     </div>
                                 </form>
@@ -711,6 +731,36 @@
                                         <button class="btn btn-outline-primary btn-sm" id="logoUploadBtn">Upload</button>
                                         <button class="btn btn-outline-danger btn-sm" id="logoRemoveBtn">Remove</button>
                                         <input type="file" id="logoFileInput" accept="image/*" style="display:none;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SAMPLE DATA ===== -->
+                <section class="page-section" id="page-sample-data">
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3"><i class="bi bi-database-fill me-2"></i> Sample Data Generator</h6>
+                                <p class="text-muted">Generate sample transactions, customers, and routes to test the system.</p>
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    This will add sample data to your Firestore database. Existing data will be preserved.
+                                </div>
+                                <div class="d-flex gap-3 flex-wrap">
+                                    <button class="btn btn-success" id="generateSampleDataBtn">
+                                        <i class="bi bi-database-fill"></i> Generate Sample Data
+                                    </button>
+                                    <button class="btn btn-danger" id="clearSampleDataBtn">
+                                        <i class="bi bi-trash-fill"></i> Clear All Data
+                                    </button>
+                                    <span class="text-muted align-self-center" id="sampleDataStatus">Ready</span>
+                                </div>
+                                <div class="mt-3">
+                                    <div id="sampleDataLog" style="max-height:200px;overflow-y:auto;font-size:13px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border);">
+                                        <div class="text-muted">No activity yet.</div>
                                     </div>
                                 </div>
                             </div>
@@ -746,7 +796,8 @@
     <script src="firebase/firebase-config.js"></script>
 
     <!-- ===== BOOTSTRAP JS ===== -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+    </script>
 
     <!-- ===== MAIN APP LOGIC ===== -->
     <script src="assets/js/app.js"></script>
