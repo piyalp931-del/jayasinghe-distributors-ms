@@ -166,7 +166,6 @@ async function loadAllData() {
         const settingsSnap = await db.collection('settings').doc('app').get();
         if (settingsSnap.exists) {
             state.settings = { ...state.settings, ...settingsSnap.data() };
-            // Update settings form
             const s = state.settings;
             if ($('setCompanyName')) $('setCompanyName').value = s.companyName || 'Jayasinghe Distributors';
             if ($('setCurrency')) $('setCurrency').value = s.currency || 'LKR';
@@ -449,7 +448,6 @@ window.deleteTransaction = async function(id) {
     }
 };
 
-// Transaction Form Events
 document.addEventListener('DOMContentLoaded', function() {
     $('transactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1358,7 +1356,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
     if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
 
-    // Login form handler
     $('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = $('loginEmail').value;
