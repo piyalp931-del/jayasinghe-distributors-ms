@@ -645,6 +645,58 @@ a {
     margin-top: 2px;
 }
 
+/* ===== LOGIN PAGE ===== */
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--bg, #f0f4f9);
+}
+.login-card {
+    background: var(--card-bg, #fff);
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: var(--shadow, 0 4px 24px rgba(0, 0, 0, 0.06));
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border, #e2e8f0);
+}
+.login-card .logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.login-card .logo .logo-icon {
+    width: 60px;
+    height: 60px;
+    background: #f5a623;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f2647;
+}
+.login-card .logo h4 {
+    margin-top: 12px;
+    font-weight: 700;
+}
+.login-card .logo small {
+    color: var(--text-muted, #64748b);
+}
+#mainApp {
+    display: none;
+}
+#loginPage {
+    display: flex;
+}
+.auth-error {
+    color: #dc2626;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
 /* ===== PRINT STYLES ===== */
 @media print {
     .sidebar,
@@ -662,4 +714,14 @@ a {
         box-shadow: none !important;
         border: 1px solid #ddd !important;
     }
+}
+
+/* Clear button styling */
+.btn-clear {
+    color: var(--text-muted);
+    border-color: var(--border);
+}
+.btn-clear:hover {
+    background: var(--bg);
+    color: var(--text);
 }
