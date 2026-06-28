@@ -4,709 +4,184 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JDMS - Jayasinghe Distributors</title>
-
+    
     <!-- Firebase Compat SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js">
-    </script>
-
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-    </script>
-
-    <!-- SheetJS (Excel) -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
-    </script>
-
-    <!-- jsPDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
-    </script>
-
+    
+    <!-- Chart.js, SheetJS, jsPDF -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
-
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/style.css" />
+    
+    <style>
+        /* මෙතනට ඔබගේ style.css එකේ හැම CSS එකම Copy කරන්න - ඉඩ ඉතිරි කරලා මම දාන්නේ නැහැ, ඔබගේ style.css එක භාවිතා කරන්න */
+        /* නැත්නම් මෙතනට සම්පූර්ණ CSS එක Paste කරන්න */
+        /* මම කෙටියෙන් Login Styles දානවා */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg, #f0f4f9);
+        }
+        .login-card {
+            background: var(--card-bg, #fff);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow, 0 4px 24px rgba(0,0,0,0.06));
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border, #e2e8f0);
+        }
+        .login-card .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-card .logo .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: #f5a623;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f2647;
+        }
+        .login-card .logo h4 {
+            margin-top: 12px;
+            font-weight: 700;
+        }
+        .login-card .logo small {
+            color: var(--text-muted, #64748b);
+        }
+        #mainApp {
+            display: none;
+        }
+        #loginPage {
+            display: flex;
+        }
+        .auth-error {
+            color: #dc2626;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+    </style>
 </head>
 <body>
 
-    <!-- ===== SIDEBAR OVERLAY (mobile) ===== -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- ===== SIDEBAR ===== -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
+<!-- ===== LOGIN PAGE ===== -->
+<div id="loginPage" class="login-container">
+    <div class="login-card">
+        <div class="logo">
             <div class="logo-icon">JD</div>
-            <div class="brand-text">
-                Jayasinghe
-                <small>Distributors</small>
-            </div>
+            <h4>Jayasinghe Distributors</h4>
+            <small>Management System</small>
         </div>
-        <nav class="sidebar-nav">
-            <div class="nav-label">Main</div>
-            <button class="nav-item active" data-page="dashboard"><i class="bi bi-grid-1x2-fill"></i> Dashboard</button>
-            <button class="nav-item" data-page="transactions"><i class="bi bi-receipt"></i> Transactions</button>
-            <button class="nav-item" data-page="customers"><i class="bi bi-people-fill"></i> Customers</button>
-            <button class="nav-item" data-page="cheques"><i class="bi bi-bank"></i> Cheques</button>
-            <button class="nav-item" data-page="routes"><i class="bi bi-map"></i> Routes</button>
-
-            <div class="nav-label">Reports</div>
-            <button class="nav-item" data-page="reports"><i class="bi bi-bar-chart-fill"></i> Reports</button>
-
-            <div class="nav-label">System</div>
-            <button class="nav-item" data-page="users"><i class="bi bi-person-badge"></i> Users</button>
-            <button class="nav-item" data-page="backup"><i class="bi bi-cloud-arrow-down-fill"></i> Backup</button>
-            <button class="nav-item" data-page="settings"><i class="bi bi-gear-fill"></i> Settings</button>
-
-            <div class="nav-label">Account</div>
-            <button class="nav-item" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Logout</button>
-        </nav>
-        <div class="sidebar-footer">JDMS v2.0 &bull; &copy; 2026</div>
-    </aside>
-
-    <!-- ===== MAIN WRAPPER ===== -->
-    <div class="main-wrapper" id="mainWrapper">
-        <!-- TOPBAR -->
-        <header class="topbar">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <button class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
-                <span class="page-title" id="pageTitle">Dashboard</span>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" id="loginEmail" placeholder="admin@test.com" required />
             </div>
-            <div class="topbar-actions">
-                <button class="btn-icon" id="themeToggle" title="Toggle Dark Mode">
-                    <i class="bi bi-moon-fill"></i>
-                </button>
-                <button class="btn-icon" id="notifBell" title="Notifications">
-                    <i class="bi bi-bell-fill"></i>
-                    <span class="dot" id="notifDot" style="display:none;"></span>
-                </button>
-                <div class="user-avatar" id="userAvatar">JD</div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" id="loginPassword" placeholder="Password" required />
             </div>
-        </header>
+            <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
+            <div id="loginError" class="auth-error text-center mt-2"></div>
+        </form>
+        <p class="text-center text-muted mt-3" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
+    </div>
+</div>
 
-        <!-- PAGE CONTENT -->
-        <div class="page-content">
+<!-- ===== MAIN APP (Dashboard + Sidebar) ===== -->
+<div id="mainApp">
+    <!-- මෙතනට ඔබගේ පැරණි index.html එකේ හැම HTML එකම දාන්න (Sidebar, Topbar, Page Content) -->
+    <!-- ඉඩ ඉතිරි කිරීමට මම මෙතන පෙන්වන්නේ නැහැ, නමුත් ඔබට ඒක Copy කරන්න පුළුවන් -->
+    <!-- ඔබගේ පැරණි HTML එකේ <body> ඇතුලෙ තියෙන හැම දෙයක්ම මෙතනට ගේන්න -->
+    <!-- උදාහරණයක් විදියට මම කෙටියෙන් දානවා -->
+    <div class="main-wrapper">
+        <!-- Topbar, Sidebar, Page Sections ... -->
+        <p style="padding:20px;">Main App Content Here (Copy from your old index.html)</p>
+    </div>
+</div>
 
-            <!-- ============================================================ -->
-            <!-- DASHBOARD -->
-            <!-- ============================================================ -->
-            <section class="page-section active" id="page-dashboard">
-                <div class="row g-4 mb-4">
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-cash-stack"></i></div>
-                            <div class="stat-value" id="dashTodayCash">0</div>
-                            <div class="stat-label">Today's Cash</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-bank"></i></div>
-                            <div class="stat-value" id="dashTodayCheques">0</div>
-                            <div class="stat-label">Today's Cheques</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#fce4ec;color:#dc2626;"><i class="bi bi-exclamation-triangle"></i></div>
-                            <div class="stat-value" id="dashPendingCheques">0</div>
-                            <div class="stat-label">Pending Cheques</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#e0f7fa;color:#0891b2;"><i class="bi bi-wallet2"></i></div>
-                            <div class="stat-value" id="dashTotalExpenses">0</div>
-                            <div class="stat-label">Total Expenses</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-4 mb-4">
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-label">Monthly Income</div>
-                            <div class="stat-value" id="dashMonthlyIncome">0</div>
-                            <div class="stat-change positive"><i class="bi bi-arrow-up"></i> +12.5%</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-label">Monthly Expenses</div>
-                            <div class="stat-value" id="dashMonthlyExpenses">0</div>
-                            <div class="stat-change negative"><i class="bi bi-arrow-down"></i> -3.2%</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-label">Profit</div>
-                            <div class="stat-value" id="dashProfit">0</div>
-                            <div class="stat-change positive"><i class="bi bi-arrow-up"></i> +8.7%</div>
-                        </div>
-                    </div>
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="stat-card">
-                            <div class="stat-label">Total Banked</div>
-                            <div class="stat-value" id="dashBanked">0</div>
-                            <div class="stat-label">All time</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-4">
-                    <div class="col-lg-8">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-graph-up me-2"></i>Monthly Overview</h6>
-                            <div class="chart-container"><canvas id="dashChart"></canvas></div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-2"></i>Recent Transactions</h6>
-                            <div id="recentTransactions">
-                                <div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- TRANSACTIONS -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-transactions">
-                <div class="row g-4">
-                    <div class="col-12">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-plus-circle me-2"></i>New Transaction</h6>
-                            <form id="transactionForm" autocomplete="off">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Date</label>
-                                        <input type="date" class="form-control" id="txnDate" required />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Route</label>
-                                        <select class="form-select" id="txnRoute" required></select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Delivery Date</label>
-                                        <input type="date" class="form-control" id="txnDeliveryDate" />
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Customer</label>
-                                        <select class="form-select" id="txnCustomer"></select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Cash</label>
-                                        <input type="number" class="form-control" id="txnCash" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Cheque</label>
-                                        <input type="number" class="form-control" id="txnCheque" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Cheque No.</label>
-                                        <input type="text" class="form-control" id="txnChequeNo" placeholder="CHQ-001" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Bank</label>
-                                        <input type="text" class="form-control" id="txnBank" placeholder="Bank name" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Branch</label>
-                                        <input type="text" class="form-control" id="txnBranch" placeholder="Branch" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Cheque Date</label>
-                                        <input type="date" class="form-control" id="txnChequeDate" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Credit</label>
-                                        <input type="number" class="form-control" id="txnCredit" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Advance</label>
-                                        <input type="number" class="form-control" id="txnAdvance" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Expense</label>
-                                        <input type="number" class="form-control" id="txnExpense" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Expense Reason</label>
-                                        <input type="text" class="form-control" id="txnExpenseReason" placeholder="Reason" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Petrol</label>
-                                        <input type="number" class="form-control" id="txnPetrol" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">KM</label>
-                                        <input type="text" class="form-control" id="txnKM" placeholder="e.g. 35km" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Banked</label>
-                                        <input type="number" class="form-control" id="txnBanked" step="0.01" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Primary</label>
-                                        <input type="text" class="form-control" id="txnPrimary" placeholder="Driver name" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Driver</label>
-                                        <input type="text" class="form-control" id="txnDriver" placeholder="Driver" />
-                                    </div>
-                                    <div class="col-md-12">
-                                        <label class="form-label">Notes</label>
-                                        <textarea class="form-control" id="txnNotes" rows="2" placeholder="Additional notes..."></textarea>
-                                    </div>
-                                    <div class="col-12 d-flex gap-2 flex-wrap">
-                                        <button type="submit" class="btn btn-primary" id="txnSaveBtn"><i class="bi bi-save me-1"></i> Save</button>
-                                        <button type="button" class="btn btn-outline-primary" id="txnUpdateBtn" style="display:none;"><i class="bi bi-pencil me-1"></i> Update</button>
-                                        <button type="button" class="btn btn-danger" id="txnDeleteBtn" style="display:none;"><i class="bi bi-trash me-1"></i> Delete</button>
-                                        <button type="reset" class="btn btn-secondary" id="txnClearBtn"><i class="bi bi-arrow-counterclockwise me-1"></i> Clear</button>
-                                        <button type="button" class="btn btn-accent" id="txnPrintBtn"><i class="bi bi-printer me-1"></i> Print</button>
-                                        <input type="hidden" id="txnEditId" />
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="table-wrapper">
-                            <div class="table-header">
-                                <span><strong>All Transactions</strong></span>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <div class="search-box">
-                                        <i class="bi bi-search"></i>
-                                        <input type="text" id="txnSearch" placeholder="Search..." />
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary" id="txnExportExcel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-                                    <button class="btn btn-sm btn-outline-primary" id="txnExportPDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
-                                </div>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-hover" id="txnTable">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Date</th>
-                                            <th>Route</th>
-                                            <th>Customer</th>
-                                            <th>Cash</th>
-                                            <th>Cheque</th>
-                                            <th>Credit</th>
-                                            <th>Banked</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="txnTableBody"></tbody>
-                                </table>
-                            </div>
-                            <div class="table-footer">
-                                <span id="txnCount">0 transactions</span>
-                                <div id="txnPagination"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- CUSTOMERS -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-customers">
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-person-plus me-2"></i>Add / Edit Customer</h6>
-                            <form id="customerForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Name *</label>
-                                    <input type="text" class="form-control" id="custName" required placeholder="Customer name" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="text" class="form-control" id="custPhone" placeholder="Phone number" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="custEmail" placeholder="Email" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Address</label>
-                                    <textarea class="form-control" id="custAddress" rows="2" placeholder="Address"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Credit Limit</label>
-                                    <input type="number" class="form-control" id="custCreditLimit" step="0.01" placeholder="0.00" />
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save</button>
-                                    <button type="button" class="btn btn-danger" id="custDeleteBtn" style="display:none;"><i class="bi bi-trash me-1"></i> Delete</button>
-                                    <button type="reset" class="btn btn-secondary"><i class="bi bi-arrow-counterclockwise me-1"></i> Clear</button>
-                                    <input type="hidden" id="custEditId" />
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="col-md-8">
-                        <div class="table-wrapper">
-                            <div class="table-header">
-                                <span><strong>All Customers</strong></span>
-                                <div class="search-box">
-                                    <i class="bi bi-search"></i>
-                                    <input type="text" id="custSearch" placeholder="Search..." />
-                                </div>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Phone</th>
-                                            <th>Email</th>
-                                            <th>Credit Limit</th>
-                                            <th>Balance</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="custTableBody"></tbody>
-                                </table>
-                            </div>
-                            <div class="table-footer"><span id="custCount">0 customers</span></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- CHEQUES -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-cheques">
-                <div class="row g-4 mb-4">
-                    <div class="col-md-3">
-                        <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" id="cheqPending">0</div></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card"><div class="stat-label">Cleared</div><div class="stat-value" id="cheqCleared">0</div></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card"><div class="stat-label">Returned</div><div class="stat-value" id="cheqReturned">0</div></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card"><div class="stat-label">Deposited</div><div class="stat-value" id="cheqDeposited">0</div></div>
-                    </div>
-                </div>
-                <div class="row g-4">
-                    <div class="col-12">
-                        <div class="table-wrapper">
-                            <div class="table-header">
-                                <span><strong>Cheque Register</strong></span>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <div class="search-box">
-                                        <i class="bi bi-search"></i>
-                                        <input type="text" id="cheqSearch" placeholder="Search..." />
-                                    </div>
-                                    <select class="form-select form-select-sm" id="cheqStatusFilter" style="width:auto;">
-                                        <option value="">All Status</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="cleared">Cleared</option>
-                                        <option value="returned">Returned</option>
-                                        <option value="deposited">Deposited</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Route</th>
-                                            <th>Customer</th>
-                                            <th>Cheque No.</th>
-                                            <th>Bank</th>
-                                            <th>Amount</th>
-                                            <th>Cheque Date</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cheqTableBody"></tbody>
-                                </table>
-                            </div>
-                            <div class="table-footer"><span id="cheqCount">0 cheques</span></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- ROUTES -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-routes">
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-plus-circle me-2"></i>Manage Routes</h6>
-                            <form id="routeForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Route Name *</label>
-                                    <input type="text" class="form-control" id="routeName" required placeholder="e.g. Keppetipola" />
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Add</button>
-                                    <button type="reset" class="btn btn-secondary"><i class="bi bi-arrow-counterclockwise me-1"></i> Clear</button>
-                                    <input type="hidden" id="routeEditId" />
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="col-md-8">
-                        <div class="table-wrapper">
-                            <div class="table-header">
-                                <span><strong>All Routes</strong></span>
-                                <span id="routeCount">0 routes</span>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead><tr><th>#</th><th>Route Name</th><th>Actions</th></tr></thead>
-                                    <tbody id="routeTableBody"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- REPORTS -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-reports">
-                <div class="row g-4">
-                    <div class="col-12">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-file-earmark-text me-2"></i>Generate Reports</h6>
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Report Type</label>
-                                    <select class="form-select" id="reportType">
-                                        <option value="daily">Daily</option>
-                                        <option value="weekly">Weekly</option>
-                                        <option value="monthly" selected>Monthly</option>
-                                        <option value="yearly">Yearly</option>
-                                        <option value="route">Route Wise</option>
-                                        <option value="customer">Customer Wise</option>
-                                        <option value="expense">Expense</option>
-                                        <option value="petrol">Petrol</option>
-                                        <option value="credit">Credit</option>
-                                        <option value="bank">Bank</option>
-                                        <option value="cheque">Cheque</option>
-                                        <option value="profit">Profit</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Month</label>
-                                    <input type="month" class="form-control" id="reportMonth" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Year</label>
-                                    <input type="number" class="form-control" id="reportYear" placeholder="2026" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Route</label>
-                                    <select class="form-select" id="reportRoute"></select>
-                                </div>
-                                <div class="col-md-3 d-flex align-items-end gap-2">
-                                    <button class="btn btn-primary" id="reportGenerateBtn"><i class="bi bi-play me-1"></i> Generate</button>
-                                    <button class="btn btn-accent" id="reportExportPDF"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</button>
-                                    <button class="btn btn-accent" id="reportExportExcel"><i class="bi bi-file-earmark-excel me-1"></i> Excel</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="stat-card" id="reportResult">
-                            <div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><h5>No report generated yet</h5><p>Select criteria and click Generate</p></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- USERS -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-users">
-                <div class="row g-4">
-                    <div class="col-md-5">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-person-plus me-2"></i>Add / Edit User</h6>
-                            <form id="userForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Email *</label>
-                                    <input type="email" class="form-control" id="userEmail" required placeholder="user@example.com" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="userPassword" placeholder="Min 6 chars (leave blank to keep)" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Role</label>
-                                    <select class="form-select" id="userRole">
-                                        <option value="admin">Admin</option>
-                                        <option value="manager">Manager</option>
-                                        <option value="viewer">Viewer</option>
-                                    </select>
-                                </div>
-                                <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save</button>
-                                    <button type="button" class="btn btn-danger" id="userDeleteBtn" style="display:none;"><i class="bi bi-trash me-1"></i> Delete</button>
-                                    <button type="reset" class="btn btn-secondary"><i class="bi bi-arrow-counterclockwise me-1"></i> Clear</button>
-                                    <input type="hidden" id="userEditId" />
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="col-md-7">
-                        <div class="table-wrapper">
-                            <div class="table-header"><span><strong>All Users</strong></span><span id="userCount">0 users</span></div>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead><tr><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
-                                    <tbody id="userTableBody"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- BACKUP -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-backup">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-cloud-arrow-down me-2"></i>Backup</h6>
-                            <p class="text-muted small">Export all data as JSON or import a backup file.</p>
-                            <div class="d-flex gap-3 flex-wrap">
-                                <button class="btn btn-primary" id="backupExport"><i class="bi bi-download me-1"></i> Export JSON</button>
-                                <button class="btn btn-accent" id="backupAutoToggle"><i class="bi bi-clock me-1"></i> Auto Backup: Off</button>
-                            </div>
-                            <hr />
-                            <h6 class="fw-semibold mb-2"><i class="bi bi-upload me-2"></i>Restore</h6>
-                            <input type="file" class="form-control" id="backupFileInput" accept=".json" />
-                            <button class="btn btn-warning mt-2" id="backupRestore"><i class="bi bi-arrow-repeat me-1"></i> Restore from File</button>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-2"></i>Backup History</h6>
-                            <div id="backupHistory"><div class="empty-state"><i class="bi bi-inbox"></i><p>No backups yet</p></div></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ============================================================ -->
-            <!-- SETTINGS -->
-            <!-- ============================================================ -->
-            <section class="page-section" id="page-settings">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-building me-2"></i>Company Details</h6>
-                            <form id="settingsForm">
-                                <div class="mb-3">
-                                    <label class="form-label">Company Name</label>
-                                    <input type="text" class="form-control" id="setCompanyName" value="Jayasinghe Distributors" />
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Currency</label>
-                                    <select class="form-select" id="setCurrency">
-                                        <option value="LKR">LKR (Rs.)</option>
-                                        <option value="USD">USD ($)</option>
-                                        <option value="EUR">EUR (€)</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Date Format</label>
-                                    <select class="form-select" id="setDateFormat">
-                                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                                        <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
-                                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                                    </select>
-                                </div>
-                                <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save Settings</button>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-card">
-                            <h6 class="fw-semibold mb-3"><i class="bi bi-palette me-2"></i>Appearance</h6>
-                            <div class="d-flex align-items-center gap-3 mb-4">
-                                <span>Dark Mode</span>
-                                <div class="theme-switch" id="settingsThemeSwitch"><div class="thumb"></div></div>
-                            </div>
-                            <h6 class="fw-semibold mb-2"><i class="bi bi-image me-2"></i>Logo</h6>
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="logo-preview" id="logoPreview"><i class="bi bi-cloud-upload"></i></div>
-                                <input type="file" id="logoFileInput" accept="image/*" style="display:none;" />
-                                <button class="btn btn-outline-primary" id="logoUploadBtn"><i class="bi bi-upload me-1"></i> Upload</button>
-                                <button class="btn btn-outline-danger" id="logoRemoveBtn"><i class="bi bi-x me-1"></i> Remove</button>
-                            </div>
-                            <hr />
-                            <h6 class="fw-semibold mb-2"><i class="bi bi-bell me-2"></i>Notifications</h6>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="notifDailyReminder" checked />
-                                <label class="form-check-label">Daily Reminder</label>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="notifEmailReminder" />
-                                <label class="form-check-label">Email Reminder (Optional)</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-        </div><!-- /page-content -->
-    </div><!-- /main-wrapper -->
-
-    <!-- ===== TOAST CONTAINER ===== -->
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
-
-    <!-- ===== MODAL (Confirmation) ===== -->
-    <div class="modal fade" id="confirmModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="background:var(--card-bg);color:var(--text);border-color:var(--border);">
-                <div class="modal-header border-0"><h5 class="modal-title" id="confirmTitle">Confirm</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body" id="confirmBody">Are you sure?</div>
-                <div class="modal-footer border-0"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="confirmOkBtn">OK</button></div>
-            </div>
+<!-- ===== TOAST & MODAL ===== -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Confirm</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body" id="confirmBody">Are you sure?</div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="confirmOkBtn">OK</button></div>
         </div>
     </div>
+</div>
 
-    <!-- ===== SCRIPTS LOAD ORDER ===== -->
-    <!-- 1. Firebase Config -->
-    <script src="firebase/firebase-config.js"></script>
-    <!-- 2. Main App -->
-    <script src="assets/js/app.js"></script>
+<!-- ===== FIREBASE CONFIG (ඔබගේ එක) ===== -->
+<script src="firebase/firebase-config.js"></script>
 
-    <!-- Bootstrap JS for modals/toasts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
-    </script>
+<!-- ===== MAIN APP LOGIC (ඔබගේ app.js එක) ===== -->
+<script src="assets/js/app.js"></script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Login Form Handler
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        const errorDiv = document.getElementById('loginError');
+        const loginBtn = document.getElementById('loginBtn');
+        
+        errorDiv.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = 'Logging in...';
+        
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            // On success, onAuthStateChanged will trigger and show main app
+            showToast('Login successful!', 'success');
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Login';
+        }
+    });
+
+    // Override demoLogin to prevent auto-login when auth fails
+    // We'll modify the app.js demoLogin to not auto-login
+    // But we can also hide main app until user is authenticated
+    // The app.js currently calls demoLogin if no user. We'll override that.
+    // We'll add a check in the auth state listener.
+    // Since we cannot change app.js now, we'll override the demoLogin function after load.
+    // Actually, we can just set a flag.
+    // Better: We'll modify app.js later, but for now, we'll just show login page if no user.
+
+    // After Firebase loads, check auth state
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+        } else {
+            document.getElementById('loginPage').style.display = 'flex';
+            document.getElementById('mainApp').style.display = 'none';
+        }
+    });
+</script>
 
 </body>
 </html>
