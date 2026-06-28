@@ -118,11 +118,9 @@ async function performLogout() {
     const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
     if (!ok) return;
     try {
-        // Sign out from Firebase
         await auth.signOut();
         showToast('Logged out successfully');
 
-        // Clear state
         state.currentUser = null;
         state.userRole = 'viewer';
         state.transactions = [];
@@ -131,13 +129,11 @@ async function performLogout() {
         state.cheques = [];
         state.users = [];
 
-        // Reset UI - show login page, hide main app
         const loginPage = $('loginPage');
         const mainApp = $('mainApp');
         if (loginPage) loginPage.style.display = 'flex';
         if (mainApp) mainApp.style.display = 'none';
 
-        // Clear any user data from UI
         const avatar = $('userAvatar');
         if (avatar) avatar.textContent = 'U';
         const displayNameEl = $('userDisplayName');
@@ -145,8 +141,6 @@ async function performLogout() {
         const emailDisplay = $('userEmailDisplay');
         if (emailDisplay) emailDisplay.textContent = 'user@example.com';
 
-        // Refresh the page to clean state
-        // window.location.reload();
     } catch (err) {
         showToast('Error during logout: ' + err.message, 'danger');
         console.error('Logout error:', err);
@@ -165,7 +159,6 @@ function checkAuth() {
                 if (doc.exists) {
                     state.userRole = doc.data().role || 'viewer';
                 } else {
-                    // Create user document if it doesn't exist
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
                         role: 'admin',
@@ -179,11 +172,9 @@ function checkAuth() {
                 state.userRole = 'viewer';
             }
 
-            // Update user info in UI
             const email = user.email || 'U';
             const displayName = email.split('@')[0] || 'User';
 
-            // Update topbar
             const avatar = $('userAvatar');
             const displayNameEl = $('userDisplayName');
             const emailDisplay = $('userEmailDisplay');
@@ -193,10 +184,8 @@ function checkAuth() {
             if (emailDisplay) emailDisplay.textContent = email;
             if (roleBadge) roleBadge.textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
 
-            // Update profile page
             updateProfilePage(user, displayName);
 
-            // Show main app
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'none';
@@ -209,7 +198,6 @@ function checkAuth() {
             updateTopbarStats();
             updateLastUpdated();
 
-            // Update last login in Firestore
             try {
                 await db.collection('users').doc(user.uid).update({
                     lastLogin: new Date().toISOString()
@@ -217,7 +205,6 @@ function checkAuth() {
             } catch (e) { /* ignore */ }
 
         } else {
-            // No user - show login page
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'flex';
@@ -232,40 +219,30 @@ function checkAuth() {
 function updateProfilePage(user, displayName) {
     if (!user) return;
 
-    // Avatar
     const avatar = $('profileAvatar');
     if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
 
-    // Display name
     const displayNameEl = $('profileDisplayName');
     if (displayNameEl) displayNameEl.textContent = displayName;
 
-    // Email
     const emailEls = ['profileEmail', 'profileEmail2'];
     emailEls.forEach(id => {
         const el = $(id);
         if (el) el.textContent = user.email || '-';
     });
 
-    // Role
     const roleEls = ['profileRoleBadge', 'profileRole2'];
     roleEls.forEach(id => {
         const el = $(id);
         if (el) {
             const role = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
-            if (id === 'profileRoleBadge') {
-                el.textContent = role;
-            } else {
-                el.textContent = role;
-            }
+            el.textContent = role;
         }
     });
 
-    // User ID
     const userIdEl = $('profileUserId');
     if (userIdEl) userIdEl.textContent = user.uid || '-';
 
-    // Created date - we'll try to get this from Firestore
     db.collection('users').doc(user.uid).get().then(doc => {
         if (doc.exists) {
             const data = doc.data();
@@ -277,7 +254,6 @@ function updateProfilePage(user, displayName) {
         }
     }).catch(() => { /* ignore */ });
 
-    // Stats
     const totalTxnsEl = $('profileTotalTxns');
     if (totalTxnsEl) totalTxnsEl.textContent = state.transactions.length;
 
@@ -298,14 +274,11 @@ async function changePassword(currentPassword, newPassword) {
             throw new Error('No user logged in');
         }
 
-        // Re-authenticate user
         const credential = firebase.auth.EmailAuthProvider.credential(
             user.email,
             currentPassword
         );
         await user.reauthenticateWithCredential(credential);
-
-        // Update password
         await user.updatePassword(newPassword);
 
         showToast('Password changed successfully!', 'success');
@@ -410,7 +383,6 @@ async function loadAllData() {
         renderAll();
         updateTopbarStats();
 
-        // Update profile stats if on profile page
         if (state.currentUser) {
             updateProfilePage(state.currentUser, state.currentUser.email.split('@')[0] || 'User');
         }
@@ -980,15 +952,18 @@ window.deleteUser = async function(docId) {
 };
 
 // ================================================================
-// REPORTS
+// REPORTS - FIXED for Daily
 // ================================================================
-function generateReport(type, month, year, route) {
+function generateReport(type, month, year, route, date) {
     const container = $('reportResult');
     if (!container) return;
     let data = [...state.transactions];
 
-    if (type === 'daily' && month) {
-        data = data.filter(t => t.date === month);
+    // Determine filters based on type
+    if (type === 'daily') {
+        // Use the date if provided, else use today
+        const filterDate = date || getToday();
+        data = data.filter(t => t.date === filterDate);
     } else if (type === 'weekly') {
         const today = new Date();
         const weekAgo = new Date(today);
@@ -1025,9 +1000,22 @@ function generateReport(type, month, year, route) {
     const totalCost = totalExpense + totalPetrol;
     const profit = totalIncome - totalCost;
 
+    let filterDesc = '';
+    if (type === 'daily') {
+        filterDesc = date || getToday();
+    } else if (type === 'weekly') {
+        filterDesc = 'Last 7 Days';
+    } else if (type === 'monthly') {
+        filterDesc = month || '';
+    } else if (type === 'yearly') {
+        filterDesc = year || '';
+    } else {
+        filterDesc = route || '';
+    }
+
     let html = `
             <div class="table-responsive">
-                <h6 class="fw-semibold mb-3">Report: ${type.toUpperCase()} ${month||year||route?'('+(month||year||route)+')':''}</h6>
+                <h6 class="fw-semibold mb-3">Report: ${type.toUpperCase()} ${filterDesc ? '('+filterDesc+')' : ''}</h6>
                 <p class="text-muted small">${data.length} transactions found</p>
                 <table class="table table-bordered">
                     <thead><tr><th>Metric</th><th>Amount</th></tr></thead>
@@ -1104,8 +1092,10 @@ function navigateTo(page) {
     if (page === 'reports') {
         const reportMonth = $('reportMonth');
         const reportYear = $('reportYear');
+        const reportDate = $('reportDate');
         if (reportMonth) reportMonth.value = new Date().toISOString().slice(0, 7);
         if (reportYear) reportYear.value = new Date().getFullYear();
+        if (reportDate) reportDate.value = getToday();
     }
 }
 window.navigateTo = navigateTo;
@@ -1275,6 +1265,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (reportMonth) reportMonth.value = new Date().toISOString().slice(0, 7);
     const reportYear = $('reportYear');
     if (reportYear) reportYear.value = new Date().getFullYear();
+    const reportDate = $('reportDate');
+    if (reportDate) reportDate.value = getToday();
+
+    // --- Report type toggle for date input visibility ---
+    const reportType = $('reportType');
+    const dateGroup = document.querySelector('.report-date-group') || document.querySelector('.col-md-2:has(#reportDate)');
+    if (reportType && dateGroup) {
+        function toggleDateVisibility() {
+            if (reportType.value === 'daily') {
+                dateGroup.classList.add('visible');
+            } else {
+                dateGroup.classList.remove('visible');
+            }
+        }
+        reportType.addEventListener('change', toggleDateVisibility);
+        toggleDateVisibility();
+    }
 
     // --- LOGIN CLEAR BUTTON ---
     const loginClearBtn = $('loginClearBtn');
@@ -1665,7 +1672,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const month = $('reportMonth') ? $('reportMonth').value : '';
             const year = $('reportYear') ? $('reportYear').value : '';
             const route = $('reportRoute') ? $('reportRoute').value : '';
-            generateReport(type, month, year, route);
+            const date = $('reportDate') ? $('reportDate').value : '';
+            generateReport(type, month, year, route, date);
         });
     }
 
@@ -1676,11 +1684,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const reportMonth = $('reportMonth');
             const reportYear = $('reportYear');
             const reportRoute = $('reportRoute');
+            const reportDate = $('reportDate');
             const reportResult = $('reportResult');
             if (reportType) reportType.value = 'daily';
             if (reportMonth) reportMonth.value = new Date().toISOString().slice(0, 7);
             if (reportYear) reportYear.value = new Date().getFullYear();
             if (reportRoute) reportRoute.value = '';
+            if (reportDate) reportDate.value = getToday();
             if (reportResult) {
                 reportResult.innerHTML =
                     `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
@@ -2046,7 +2056,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const statusEl = $('passwordChangeStatus');
             const btn = $('changePasswordBtn');
 
-            // Clear previous messages
             if (errorEl) errorEl.textContent = '';
             if (successEl) {
                 successEl.style.display = 'none';
@@ -2054,7 +2063,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (statusEl) statusEl.textContent = '';
 
-            // Validate
             if (newPassword.length < 6) {
                 if (errorEl) errorEl.textContent = 'New password must be at least 6 characters';
                 return;
@@ -2077,7 +2085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     successEl.textContent = '✅ Password changed successfully!';
                     successEl.style.display = 'block';
                 }
-                // Clear fields
                 const cp = $('currentPassword');
                 const np = $('newPassword');
                 const cf = $('confirmPassword');
@@ -2210,7 +2217,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized (Demo Removed, Logout Fixed, Profile Added)');
+console.log('🚀 JDMS v2.0 initialized (Reports Fixed)');
 console.log('📦 Jayasinghe Distributors Management System');
 console.log('🔷 Blue & Gold Theme');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
