@@ -444,42 +444,34 @@ function populateSelects() {
 }
 
 // ================================================================
-// POPULATE REPORT ROUTE/CUSTOMER DROPDOWN (DYNAMIC)
+// POPULATE REPORT ROUTE/CUSTOMER DROPDOWN (ALWAYS COMBINED)
 // ================================================================
 function populateReportRouteSelect() {
-    const reportTypeEl = $('reportType');
     const reportRouteEl = $('reportRoute');
-    if (!reportTypeEl || !reportRouteEl) return;
+    if (!reportRouteEl) return;
 
-    const type = reportTypeEl.value;
     const currentVal = reportRouteEl.value;
 
     // Clear existing options
     reportRouteEl.innerHTML = '<option value="">Select</option>';
 
-    if (type === 'route') {
-        // Populate with Routes
-        state.routes.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r.name;
-            opt.textContent = r.name;
-            reportRouteEl.appendChild(opt);
-        });
-    } else if (type === 'customer') {
-        // Populate with Customers
-        state.customers.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.name;
-            opt.textContent = c.name + (c.phone ? ' (' + c.phone + ')' : '');
-            reportRouteEl.appendChild(opt);
-        });
-    } else {
-        // For other report types, keep only the default "Select" option
-        // Optionally add a placeholder
-        reportRouteEl.innerHTML = '<option value="">Select</option>';
-    }
+    // Add Routes with prefix
+    state.routes.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = 'route:' + r.name; // Prefix to identify type
+        opt.textContent = '🚏 ' + r.name;
+        reportRouteEl.appendChild(opt);
+    });
 
-    // Restore previously selected value if it exists in the new options
+    // Add Customers with prefix
+    state.customers.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = 'customer:' + c.name;
+        opt.textContent = '👤 ' + c.name + (c.phone ? ' (' + c.phone + ')' : '');
+        reportRouteEl.appendChild(opt);
+    });
+
+    // Restore previously selected value if it exists
     if (currentVal) {
         const exists = Array.from(reportRouteEl.options).some(opt => opt.value === currentVal);
         if (exists) reportRouteEl.value = currentVal;
@@ -992,13 +984,14 @@ window.deleteUser = async function(docId) {
 };
 
 // ================================================================
-// REPORTS
+// REPORTS - Updated to handle combined route/customer filter
 // ================================================================
-function generateReport(type, month, year, route, date) {
+function generateReport(type, month, year, routeCustomerValue, date) {
     const container = $('reportResult');
     if (!container) return;
     let data = [...state.transactions];
 
+    // Apply date/time filters based on report type
     if (type === 'daily') {
         const filterDate = date || getToday();
         data = data.filter(t => t.date === filterDate);
@@ -1012,10 +1005,12 @@ function generateReport(type, month, year, route, date) {
         data = data.filter(t => t.date && t.date.startsWith(month));
     } else if (type === 'yearly' && year) {
         data = data.filter(t => t.date && t.date.startsWith(year));
-    } else if (type === 'route' && route) {
-        data = data.filter(t => t.route === route);
-    } else if (type === 'customer' && route) {
-        data = data.filter(t => t.customer === route);
+    } else if (type === 'route') {
+        // If report type is 'route', we still apply the route filter from dropdown if any
+        // but we also need to group by route? Actually we are just filtering.
+        // We'll handle filtering separately.
+    } else if (type === 'customer') {
+        // Same as above
     } else if (type === 'expense') {
         data = data.filter(t => parseFloat(t.expense) > 0);
     } else if (type === 'petrol') {
@@ -1026,6 +1021,20 @@ function generateReport(type, month, year, route, date) {
         data = data.filter(t => parseFloat(t.banked) > 0);
     } else if (type === 'cheque') {
         data = data.filter(t => parseFloat(t.cheque) > 0);
+    }
+
+    // Apply route/customer filter if a value is selected
+    if (routeCustomerValue) {
+        const parts = routeCustomerValue.split(':');
+        if (parts.length === 2) {
+            const filterType = parts[0]; // 'route' or 'customer'
+            const filterValue = parts[1];
+            if (filterType === 'route') {
+                data = data.filter(t => t.route === filterValue);
+            } else if (filterType === 'customer') {
+                data = data.filter(t => t.customer === filterValue);
+            }
+        }
     }
 
     const totalCash = data.reduce((s, t) => s + (parseFloat(t.cash) || 0), 0);
@@ -1047,12 +1056,15 @@ function generateReport(type, month, year, route, date) {
         filterDesc = month || '';
     } else if (type === 'yearly') {
         filterDesc = year || '';
-    } else if (type === 'route') {
-        filterDesc = route || '';
-    } else if (type === 'customer') {
-        filterDesc = route || '';
+    } else if (type === 'route' || type === 'customer') {
+        filterDesc = routeCustomerValue ? routeCustomerValue.split(':')[1] : '';
     } else {
         filterDesc = '';
+    }
+    // Append route/customer filter info if applied
+    if (routeCustomerValue) {
+        const label = routeCustomerValue.split(':')[1] || '';
+        filterDesc += (filterDesc ? ' - ' : '') + 'Filter: ' + label;
     }
 
     let html = `
@@ -1304,10 +1316,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportDate = $('reportDate');
     if (reportDate) reportDate.value = getToday();
 
-    // --- Report type toggle for dynamic dropdown ---
+    // --- Report type change to toggle date visibility and refresh dropdown ---
     const reportType = $('reportType');
     if (reportType) {
-        reportType.addEventListener('change', populateReportRouteSelect);
+        reportType.addEventListener('change', function() {
+            // Toggle date picker visibility for daily reports
+            const dateGroup = document.querySelector('.col-md-2:has(#reportDate)');
+            if (dateGroup) {
+                if (this.value === 'daily') {
+                    dateGroup.classList.add('visible');
+                } else {
+                    dateGroup.classList.remove('visible');
+                }
+            }
+            // Populate dropdown (always populated with combined list)
+            populateReportRouteSelect();
+        });
+        // Trigger initial visibility
+        if (reportType.value === 'daily') {
+            const dateGroup = document.querySelector('.col-md-2:has(#reportDate)');
+            if (dateGroup) dateGroup.classList.add('visible');
+        }
     }
 
     // --- LOGIN CLEAR BUTTON ---
@@ -1697,9 +1726,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const type = $('reportType') ? $('reportType').value : 'daily';
             const month = $('reportMonth') ? $('reportMonth').value : '';
             const year = $('reportYear') ? $('reportYear').value : '';
-            const route = $('reportRoute') ? $('reportRoute').value : '';
+            const routeCustomerValue = $('reportRoute') ? $('reportRoute').value : '';
             const date = $('reportDate') ? $('reportDate').value : '';
-            generateReport(type, month, year, route, date);
+            generateReport(type, month, year, routeCustomerValue, date);
         });
     }
 
@@ -1720,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportResult) {
                 reportResult.innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
             }
-            // Repopulate the dropdown after clearing
+            // Repopulate the dropdown
             populateReportRouteSelect();
             showToast('Filters cleared', 'info');
         });
