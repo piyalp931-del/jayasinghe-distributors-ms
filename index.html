@@ -4,184 +4,756 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JDMS - Jayasinghe Distributors</title>
-    
+
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    
+
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    
+
     <!-- Chart.js, SheetJS, jsPDF -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
+
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
-    
-    <style>
-        /* මෙතනට ඔබගේ style.css එකේ හැම CSS එකම Copy කරන්න - ඉඩ ඉතිරි කරලා මම දාන්නේ නැහැ, ඔබගේ style.css එක භාවිතා කරන්න */
-        /* නැත්නම් මෙතනට සම්පූර්ණ CSS එක Paste කරන්න */
-        /* මම කෙටියෙන් Login Styles දානවා */
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: var(--bg, #f0f4f9);
-        }
-        .login-card {
-            background: var(--card-bg, #fff);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: var(--shadow, 0 4px 24px rgba(0,0,0,0.06));
-            width: 100%;
-            max-width: 400px;
-            border: 1px solid var(--border, #e2e8f0);
-        }
-        .login-card .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-card .logo .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: #f5a623;
-            border-radius: 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            font-weight: 800;
-            color: #0f2647;
-        }
-        .login-card .logo h4 {
-            margin-top: 12px;
-            font-weight: 700;
-        }
-        .login-card .logo small {
-            color: var(--text-muted, #64748b);
-        }
-        #mainApp {
-            display: none;
-        }
-        #loginPage {
-            display: flex;
-        }
-        .auth-error {
-            color: #dc2626;
-            font-size: 14px;
-            margin-top: 8px;
-        }
-    </style>
+
+    <!-- External Stylesheet -->
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- ===== LOGIN PAGE ===== -->
-<div id="loginPage" class="login-container">
-    <div class="login-card">
-        <div class="logo">
-            <div class="logo-icon">JD</div>
-            <h4>Jayasinghe Distributors</h4>
-            <small>Management System</small>
-        </div>
-        <form id="loginForm">
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" id="loginEmail" placeholder="admin@test.com" required />
+    <!-- ===== LOGIN PAGE ===== -->
+    <div id="loginPage" class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <div class="logo-icon">JD</div>
+                <h4>Jayasinghe Distributors</h4>
+                <small>Management System</small>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Password</label>
-                <input type="password" class="form-control" id="loginPassword" placeholder="Password" required />
-            </div>
-            <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
-            <div id="loginError" class="auth-error text-center mt-2"></div>
-        </form>
-        <p class="text-center text-muted mt-3" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
-    </div>
-</div>
-
-<!-- ===== MAIN APP (Dashboard + Sidebar) ===== -->
-<div id="mainApp">
-    <!-- මෙතනට ඔබගේ පැරණි index.html එකේ හැම HTML එකම දාන්න (Sidebar, Topbar, Page Content) -->
-    <!-- ඉඩ ඉතිරි කිරීමට මම මෙතන පෙන්වන්නේ නැහැ, නමුත් ඔබට ඒක Copy කරන්න පුළුවන් -->
-    <!-- ඔබගේ පැරණි HTML එකේ <body> ඇතුලෙ තියෙන හැම දෙයක්ම මෙතනට ගේන්න -->
-    <!-- උදාහරණයක් විදියට මම කෙටියෙන් දානවා -->
-    <div class="main-wrapper">
-        <!-- Topbar, Sidebar, Page Sections ... -->
-        <p style="padding:20px;">Main App Content Here (Copy from your old index.html)</p>
-    </div>
-</div>
-
-<!-- ===== TOAST & MODAL ===== -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
-<div class="modal fade" id="confirmModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Confirm</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body" id="confirmBody">Are you sure?</div>
-            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="confirmOkBtn">OK</button></div>
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="loginEmail" placeholder="admin@test.com" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="Password" required />
+                </div>
+                <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
+                <div id="loginError" class="auth-error text-center mt-2"></div>
+            </form>
+            <p class="text-center text-muted mt-3" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
         </div>
     </div>
-</div>
 
-<!-- ===== FIREBASE CONFIG (ඔබගේ එක) ===== -->
-<script src="firebase/firebase-config.js"></script>
+    <!-- ===== MAIN APP ===== -->
+    <div id="mainApp">
 
-<!-- ===== MAIN APP LOGIC (ඔබගේ app.js එක) ===== -->
-<script src="assets/js/app.js"></script>
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo-icon">JD</div>
+                <div class="brand-text">
+                    Jayasinghe
+                    <small>Distributors</small>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-label">Main</div>
+                <button class="nav-item active" data-page="dashboard">
+                    <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                </button>
+                <button class="nav-item" data-page="transactions">
+                    <i class="bi bi-receipt"></i> Transactions
+                </button>
+                <button class="nav-item" data-page="customers">
+                    <i class="bi bi-people"></i> Customers
+                </button>
+                <button class="nav-item" data-page="cheques">
+                    <i class="bi bi-bank"></i> Cheques
+                    <span class="badge-nav" id="cheqBadge">0</span>
+                </button>
+                <button class="nav-item" data-page="routes">
+                    <i class="bi bi-diagram-2"></i> Routes
+                </button>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                <div class="nav-label">Reports</div>
+                <button class="nav-item" data-page="reports">
+                    <i class="bi bi-bar-chart-fill"></i> Reports
+                </button>
 
-<script>
-    // Login Form Handler
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-        const errorDiv = document.getElementById('loginError');
-        const loginBtn = document.getElementById('loginBtn');
-        
-        errorDiv.textContent = '';
-        loginBtn.disabled = true;
-        loginBtn.innerHTML = 'Logging in...';
-        
-        try {
-            await auth.signInWithEmailAndPassword(email, password);
-            // On success, onAuthStateChanged will trigger and show main app
-            showToast('Login successful!', 'success');
-        } catch (err) {
-            errorDiv.textContent = err.message;
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = 'Login';
-        }
-    });
+                <div class="nav-label">Admin</div>
+                <button class="nav-item" data-page="users">
+                    <i class="bi bi-person-badge"></i> Users
+                </button>
+                <button class="nav-item" data-page="backup">
+                    <i class="bi bi-cloud-arrow-down"></i> Backup
+                </button>
+                <button class="nav-item" data-page="settings">
+                    <i class="bi bi-gear"></i> Settings
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="nav-item" id="logoutBtn" style="justify-content:center;color:rgba(255,255,255,0.5);font-size:13px;margin-top:auto;">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+            </div>
+        </aside>
 
-    // Override demoLogin to prevent auto-login when auth fails
-    // We'll modify the app.js demoLogin to not auto-login
-    // But we can also hide main app until user is authenticated
-    // The app.js currently calls demoLogin if no user. We'll override that.
-    // We'll add a check in the auth state listener.
-    // Since we cannot change app.js now, we'll override the demoLogin function after load.
-    // Actually, we can just set a flag.
-    // Better: We'll modify app.js later, but for now, we'll just show login page if no user.
+        <!-- Overlay for mobile -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    // After Firebase loads, check auth state
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-        } else {
-            document.getElementById('loginPage').style.display = 'flex';
-            document.getElementById('mainApp').style.display = 'none';
-        }
-    });
-</script>
+        <!-- Main Content -->
+        <div class="main-wrapper">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <span class="page-title" id="pageTitle">Dashboard</span>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn-icon" id="themeToggle" title="Toggle theme">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                    <div class="user-avatar" id="userAvatar">U</div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content">
+
+                <!-- ===== DASHBOARD ===== -->
+                <section class="page-section active" id="page-dashboard">
+                    <div class="row g-4 mb-4">
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-cash-stack"></i></div>
+                                <div class="stat-value" id="dashTodayCash">Rs. 0.00</div>
+                                <div class="stat-label">Today's Cash</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-bank"></i></div>
+                                <div class="stat-value" id="dashTodayCheques">Rs. 0.00</div>
+                                <div class="stat-label">Today's Cheques</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#fee2e2;color:#dc2626;"><i class="bi bi-clock-history"></i></div>
+                                <div class="stat-value" id="dashPendingCheques">0</div>
+                                <div class="stat-label">Pending Cheques</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#d1fae5;color:#059669;"><i class="bi bi-wallet2"></i></div>
+                                <div class="stat-value" id="dashBanked">Rs. 0.00</div>
+                                <div class="stat-label">Total Banked</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#e0e7ff;color:#4f46e5;"><i class="bi bi-graph-up-arrow"></i></div>
+                                <div class="stat-value" id="dashMonthlyIncome">Rs. 0.00</div>
+                                <div class="stat-label">Monthly Income</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#fce4ec;color:#e11d48;"><i class="bi bi-graph-down-arrow"></i></div>
+                                <div class="stat-value" id="dashMonthlyExpenses">Rs. 0.00</div>
+                                <div class="stat-label">Monthly Expenses</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#d1fae5;color:#059669;"><i class="bi bi-piggy-bank"></i></div>
+                                <div class="stat-value" id="dashProfit">Rs. 0.00</div>
+                                <div class="stat-label">Profit / Loss</div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-lg-6 col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-receipt-cutoff"></i></div>
+                                <div class="stat-value" id="dashTotalExpenses">Rs. 0.00</div>
+                                <div class="stat-label">Total Expenses</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-lg-8">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">7-Day Overview</h6>
+                                <div class="chart-container">
+                                    <canvas id="dashChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">Recent Transactions</h6>
+                                <div id="recentTransactions">
+                                    <div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== TRANSACTIONS ===== -->
+                <section class="page-section" id="page-transactions">
+                    <!-- Form -->
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3" id="txnFormTitle">Add Transaction</h6>
+                        <form id="transactionForm">
+                            <input type="hidden" id="txnEditId" value="" />
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Date</label>
+                                    <input type="date" class="form-control" id="txnDate" required />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Route</label>
+                                    <select class="form-select" id="txnRoute" required>
+                                        <option value="">Select Route</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Delivery Date</label>
+                                    <input type="date" class="form-control" id="txnDeliveryDate" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Customer</label>
+                                    <select class="form-select" id="txnCustomer">
+                                        <option value="">Select Customer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-2">
+                                    <label class="form-label">Cash</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnCash" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Cheque</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnCheque" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Cheque No.</label>
+                                    <input type="text" class="form-control" id="txnChequeNo" placeholder="CHQ-001" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Bank</label>
+                                    <input type="text" class="form-control" id="txnBank" placeholder="Bank name" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Branch</label>
+                                    <input type="text" class="form-control" id="txnBranch" placeholder="Branch" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Cheque Date</label>
+                                    <input type="date" class="form-control" id="txnChequeDate" />
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-2">
+                                    <label class="form-label">Credit</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnCredit" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Advance</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnAdvance" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Expense</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnExpense" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Expense Reason</label>
+                                    <input type="text" class="form-control" id="txnExpenseReason" placeholder="Reason" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Petrol</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnPetrol" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">KM</label>
+                                    <input type="text" class="form-control" id="txnKM" placeholder="KM reading" />
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-3">
+                                    <label class="form-label">Banked</label>
+                                    <input type="number" step="0.01" class="form-control" id="txnBanked" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Primary</label>
+                                    <input type="text" class="form-control" id="txnPrimary" placeholder="Primary contact" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Driver</label>
+                                    <input type="text" class="form-control" id="txnDriver" placeholder="Driver name" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Notes</label>
+                                    <input type="text" class="form-control" id="txnNotes" placeholder="Notes" />
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3 flex-wrap">
+                                <button type="submit" class="btn btn-primary" id="txnSaveBtn">Save</button>
+                                <button type="button" class="btn btn-outline-secondary btn-clear" id="txnClearBtn"><i class="bi bi-eraser"></i> Clear</button>
+                                <button type="button" class="btn btn-outline-primary" id="txnUpdateBtn" style="display:none;">Update</button>
+                                <button type="button" class="btn btn-outline-danger" id="txnDeleteBtn" style="display:none;">Delete</button>
+                                <button type="button" class="btn btn-outline-success ms-auto" id="txnExportExcel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                                <button type="button" class="btn btn-outline-danger" id="txnExportPDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                                <button type="button" class="btn btn-outline-secondary" id="txnPrintBtn"><i class="bi bi-printer"></i> Print</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <span class="fw-semibold" id="txnCount">0 transactions</span>
+                            </div>
+                            <div class="search-box">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="txnSearch" placeholder="Search transactions..." />
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Date</th>
+                                        <th>Route</th>
+                                        <th>Customer</th>
+                                        <th>Cash</th>
+                                        <th>Cheque</th>
+                                        <th>Credit</th>
+                                        <th>Banked</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="txnTableBody">
+                                    <tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-footer">
+                            <span>Showing up to 50 records</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== CUSTOMERS ===== -->
+                <section class="page-section" id="page-customers">
+                    <!-- Form -->
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3" id="custFormTitle">Add Customer</h6>
+                        <form id="customerForm">
+                            <input type="hidden" id="custEditId" value="" />
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Name *</label>
+                                    <input type="text" class="form-control" id="custName" placeholder="Customer name" required />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Phone</label>
+                                    <input type="text" class="form-control" id="custPhone" placeholder="Phone number" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="custEmail" placeholder="Email" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Credit Limit</label>
+                                    <input type="number" step="0.01" class="form-control" id="custCreditLimit" placeholder="0.00" />
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-12">
+                                    <label class="form-label">Address</label>
+                                    <input type="text" class="form-control" id="custAddress" placeholder="Address" />
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3 flex-wrap">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="button" class="btn btn-outline-secondary btn-clear" id="custClearBtn"><i class="bi bi-eraser"></i> Clear</button>
+                                <button type="button" class="btn btn-outline-danger" id="custDeleteBtn" style="display:none;">Delete</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <span class="fw-semibold" id="custCount">0 customers</span>
+                            </div>
+                            <div class="search-box">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="custSearch" placeholder="Search customers..." />
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Email</th>
+                                        <th>Credit Limit</th>
+                                        <th>Balance</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="custTableBody">
+                                    <tr><td colspan="6" class="text-center text-muted py-4">No customers</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== CHEQUES ===== -->
+                <section class="page-section" id="page-cheques">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-3">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Pending</div>
+                                <div class="stat-value" id="cheqPending" style="font-size:24px;">0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Cleared</div>
+                                <div class="stat-value" id="cheqCleared" style="font-size:24px;">0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Returned</div>
+                                <div class="stat-value" id="cheqReturned" style="font-size:24px;">0</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Deposited</div>
+                                <div class="stat-value" id="cheqDeposited" style="font-size:24px;">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <span class="fw-semibold" id="cheqCount">0 cheques</span>
+                                <select class="form-select form-select-sm" id="cheqStatusFilter" style="width:auto;">
+                                    <option value="">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="cleared">Cleared</option>
+                                    <option value="returned">Returned</option>
+                                    <option value="deposited">Deposited</option>
+                                </select>
+                            </div>
+                            <div class="search-box">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="cheqSearch" placeholder="Search cheques..." />
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Route</th>
+                                        <th>Customer</th>
+                                        <th>Cheque No.</th>
+                                        <th>Bank</th>
+                                        <th>Amount</th>
+                                        <th>Cheque Date</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cheqTableBody">
+                                    <tr><td colspan="9" class="text-center text-muted py-4">No cheques</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== ROUTES ===== -->
+                <section class="page-section" id="page-routes">
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3">Add / Manage Routes</h6>
+                        <form id="routeForm">
+                            <input type="hidden" id="routeEditId" value="" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Route Name</label>
+                                    <input type="text" class="form-control" id="routeName" placeholder="e.g. Colombo North" required />
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3 flex-wrap">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="button" class="btn btn-outline-secondary btn-clear" id="routeClearBtn"><i class="bi bi-eraser"></i> Clear</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <span class="fw-semibold" id="routeCount">0 routes</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>#</th><th>Route Name</th><th>Action</th></tr></thead>
+                                <tbody id="routeTableBody">
+                                    <tr><td colspan="3" class="text-center text-muted py-4">No routes</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== REPORTS ===== -->
+                <section class="page-section" id="page-reports">
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3">Generate Report</h6>
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label">Report Type</label>
+                                <select class="form-select" id="reportType">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                    <option value="route">Route</option>
+                                    <option value="customer">Customer</option>
+                                    <option value="expense">Expense</option>
+                                    <option value="petrol">Petrol</option>
+                                    <option value="credit">Credit</option>
+                                    <option value="bank">Bank</option>
+                                    <option value="cheque">Cheque</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Month (YYYY-MM)</label>
+                                <input type="month" class="form-control" id="reportMonth" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Year</label>
+                                <input type="number" class="form-control" id="reportYear" placeholder="2025" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Route / Customer</label>
+                                <select class="form-select" id="reportRoute">
+                                    <option value="">Select</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end gap-2">
+                                <button class="btn btn-primary" id="reportGenerateBtn">Generate</button>
+                                <button class="btn btn-outline-secondary btn-clear" id="reportClearBtn"><i class="bi bi-eraser"></i> Clear</button>
+                                <button class="btn btn-outline-success" id="reportExportExcel"><i class="bi bi-file-earmark-excel"></i></button>
+                                <button class="btn btn-outline-danger" id="reportExportPDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card" id="reportResult">
+                        <div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>
+                    </div>
+                </section>
+
+                <!-- ===== USERS ===== -->
+                <section class="page-section" id="page-users">
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3" id="userFormTitle">Add User</h6>
+                        <form id="userForm">
+                            <input type="hidden" id="userEditId" value="" />
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Email *</label>
+                                    <input type="email" class="form-control" id="userEmail" placeholder="user@example.com" required />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Password (min 6 chars)</label>
+                                    <input type="password" class="form-control" id="userPassword" placeholder="Password" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Role</label>
+                                    <select class="form-select" id="userRole">
+                                        <option value="admin">Admin</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="viewer">Viewer</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-3 flex-wrap">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                                <button type="button" class="btn btn-outline-secondary btn-clear" id="userClearBtn"><i class="bi bi-eraser"></i> Clear</button>
+                                <button type="button" class="btn btn-outline-danger" id="userDeleteBtn" style="display:none;">Delete</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <span class="fw-semibold" id="userCount">0 users</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+                                <tbody id="userTableBody">
+                                    <tr><td colspan="4" class="text-center text-muted py-4">No users</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== BACKUP ===== -->
+                <section class="page-section" id="page-backup">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">Export Backup</h6>
+                                <p class="text-muted" style="font-size:14px;">Download all data as a JSON file.</p>
+                                <button class="btn btn-primary" id="backupExport"><i class="bi bi-download"></i> Export Backup</button>
+                                <button class="btn btn-outline-secondary mt-2 d-block" id="backupAutoToggle"><i class="bi bi-clock me-1"></i> Auto Backup: Off</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">Restore Backup</h6>
+                                <p class="text-muted" style="font-size:14px;">Upload a JSON backup file to restore data.</p>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <input type="file" class="form-control" id="backupFileInput" accept=".json" style="width:auto;" />
+                                    <button class="btn btn-warning" id="backupRestore"><i class="bi bi-upload"></i> Restore</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">Backup History</h6>
+                                <div id="backupHistory">
+                                    <div class="text-muted" style="font-size:13px;">No backups recorded yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===== SETTINGS ===== -->
+                <section class="page-section" id="page-settings">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">General Settings</h6>
+                                <form id="settingsForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Company Name</label>
+                                        <input type="text" class="form-control" id="setCompanyName" value="Jayasinghe Distributors" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Currency</label>
+                                        <select class="form-select" id="setCurrency">
+                                            <option value="LKR">LKR (Rs.)</option>
+                                            <option value="USD">USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Date Format</label>
+                                        <select class="form-select" id="setDateFormat">
+                                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-clear" id="settingsClearBtn"><i class="bi bi-eraser"></i> Reset to Defaults</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3">Theme & Appearance</h6>
+                                <div class="d-flex align-items-center gap-3 mb-4">
+                                    <span>Dark Mode</span>
+                                    <div class="theme-switch" id="settingsThemeSwitch">
+                                        <div class="thumb"></div>
+                                    </div>
+                                </div>
+                                <h6 class="fw-semibold mb-2">Company Logo</h6>
+                                <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div class="logo-preview" id="logoPreview">
+                                        <i class="bi bi-cloud-upload"></i>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-outline-primary btn-sm" id="logoUploadBtn">Upload</button>
+                                        <button class="btn btn-outline-danger btn-sm" id="logoRemoveBtn">Remove</button>
+                                        <input type="file" id="logoFileInput" accept="image/*" style="display:none;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div><!-- /page-content -->
+        </div><!-- /main-wrapper -->
+
+    </div><!-- /mainApp -->
+
+    <!-- ===== TOAST & MODAL ===== -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
+
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmTitle">Confirm</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmBody">Are you sure?</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" id="confirmOkBtn">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== FIREBASE CONFIG ===== -->
+    <script src="firebase/firebase-config.js"></script>
+
+    <!-- ===== BOOTSTRAP JS ===== -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ===== MAIN APP LOGIC ===== -->
+    <script src="assets/js/app.js"></script>
 
 </body>
 </html>
