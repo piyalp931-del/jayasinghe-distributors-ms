@@ -48,13 +48,6 @@ function formatDate(dateStr) {
     return dd + '/' + mm + '/' + yyyy;
 }
 
-function formatDateShort(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function getToday() {
     return new Date().toISOString().split('T')[0];
 }
@@ -89,14 +82,6 @@ function showConfirm(title, body) {
     });
 }
 
-function showLoading(btn) {
-    const orig = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="loading-spinner"></span> Loading...';
-    return () => { btn.disabled = false;
-        btn.innerHTML = orig; };
-}
-
 // ================================================================
 // AUTH
 // ================================================================
@@ -124,8 +109,9 @@ function checkAuth() {
             await loadAllData();
             applyRoleRestrictions();
             initDashboard();
+            updateChequeBadge();
         } else {
-            showToast('Please login to continue. (Demo mode active)', 'warning');
+            showToast('Please login to continue.', 'warning');
             demoLogin();
         }
     });
@@ -139,6 +125,7 @@ async function demoLogin() {
         await loadAllData();
         applyRoleRestrictions();
         initDashboard();
+        updateChequeBadge();
         showToast('Demo mode: Logged in as Admin', 'info');
     } catch (e) {
         document.body.innerHTML =
@@ -147,6 +134,15 @@ async function demoLogin() {
                 <p>Please set up Firebase Authentication or use a valid login.</p>
                 <p style="font-size:13px;color:#64748b;">Check firebase-config.js and enable Email/Password auth.</p>
             </div>`;
+    }
+}
+
+function updateChequeBadge() {
+    const pending = state.cheques.filter(c => c.status === 'pending').length;
+    const badge = $('cheqBadge');
+    if (badge) {
+        badge.textContent = pending;
+        badge.style.display = pending > 0 ? 'inline' : 'none';
     }
 }
 
@@ -170,6 +166,11 @@ async function loadAllData() {
         const settingsSnap = await db.collection('settings').doc('app').get();
         if (settingsSnap.exists) {
             state.settings = { ...state.settings, ...settingsSnap.data() };
+            // Update settings form
+            const s = state.settings;
+            if ($('setCompanyName')) $('setCompanyName').value = s.companyName || 'Jayasinghe Distributors';
+            if ($('setCurrency')) $('setCurrency').value = s.currency || 'LKR';
+            if ($('setDateFormat')) $('setDateFormat').value = s.dateFormat || 'DD/MM/YYYY';
         }
 
         state.cheques = state.transactions
@@ -206,6 +207,7 @@ function renderAll() {
     renderUsers();
     renderDashboardStats();
     populateSelects();
+    updateChequeBadge();
 }
 
 // ================================================================
@@ -263,20 +265,18 @@ function renderDashboardStats() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const monthTxns = state.transactions.filter(t => t.date >= monthStart);
-    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (
-        parseFloat(t.credit) || 0), 0);
-    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0),
-    0);
+    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0), 0);
+    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
     const profit = monthlyIncome - monthlyExpenses;
 
-    $('dashTodayCash').textContent = formatCurrency(cashToday);
-    $('dashTodayCheques').textContent = formatCurrency(chequeToday);
-    $('dashPendingCheques').textContent = pendingCheques;
-    $('dashTotalExpenses').textContent = formatCurrency(totalExpenses);
-    $('dashMonthlyIncome').textContent = formatCurrency(monthlyIncome);
-    $('dashMonthlyExpenses').textContent = formatCurrency(monthlyExpenses);
-    $('dashProfit').textContent = formatCurrency(profit);
-    $('dashBanked').textContent = formatCurrency(totalBanked);
+    if ($('dashTodayCash')) $('dashTodayCash').textContent = formatCurrency(cashToday);
+    if ($('dashTodayCheques')) $('dashTodayCheques').textContent = formatCurrency(chequeToday);
+    if ($('dashPendingCheques')) $('dashPendingCheques').textContent = pendingCheques;
+    if ($('dashTotalExpenses')) $('dashTotalExpenses').textContent = formatCurrency(totalExpenses);
+    if ($('dashMonthlyIncome')) $('dashMonthlyIncome').textContent = formatCurrency(monthlyIncome);
+    if ($('dashMonthlyExpenses')) $('dashMonthlyExpenses').textContent = formatCurrency(monthlyExpenses);
+    if ($('dashProfit')) $('dashProfit').textContent = formatCurrency(profit);
+    if ($('dashBanked')) $('dashBanked').textContent = formatCurrency(totalBanked);
 }
 
 function renderRecentTransactions() {
@@ -354,11 +354,10 @@ function renderTransactions() {
             (t.id || '').toLowerCase().includes(search)
         );
     }
-    $('txnCount').textContent = filtered.length + ' transactions';
+    if ($('txnCount')) $('txnCount').textContent = filtered.length + ' transactions';
 
     if (!filtered.length) {
-        tbody.innerHTML =
-            `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
@@ -406,7 +405,6 @@ function getTransactionFormData() {
     };
 }
 
-// Global functions for inline onclick
 window.editTransaction = async function(id) {
     const txn = state.transactions.find(t => t.id === id);
     if (!txn) return;
@@ -488,6 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
         $('txnUpdateBtn').style.display = 'none';
         $('txnDeleteBtn').style.display = 'none';
         $('txnSaveBtn').textContent = 'Save';
+        showToast('Form cleared', 'info');
     });
 
     $('txnUpdateBtn').addEventListener('click', () => {
@@ -501,7 +500,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     $('txnSearch').addEventListener('input', renderTransactions);
 
-    // Export buttons
     $('txnExportExcel').addEventListener('click', () => {
         const data = state.transactions.map(t => ({
             ID: t.id,
@@ -566,7 +564,7 @@ function renderCustomers() {
             (c.email || '').toLowerCase().includes(search)
         );
     }
-    $('custCount').textContent = filtered.length + ' customers';
+    if ($('custCount')) $('custCount').textContent = filtered.length + ' customers';
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No customers</td></tr>`;
@@ -620,6 +618,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (err) {
             showToast('Error: ' + err.message, 'danger');
         }
+    });
+
+    $('custClearBtn').addEventListener('click', () => {
+        $('customerForm').reset();
+        $('custEditId').value = '';
+        $('custDeleteBtn').style.display = 'none';
+        showToast('Form cleared', 'info');
     });
 
     $('custSearch').addEventListener('input', renderCustomers);
@@ -677,11 +682,11 @@ function renderCheques() {
         filtered = filtered.filter(c => c.status === statusFilter);
     }
 
-    $('cheqPending').textContent = state.cheques.filter(c => c.status === 'pending').length;
-    $('cheqCleared').textContent = state.cheques.filter(c => c.status === 'cleared').length;
-    $('cheqReturned').textContent = state.cheques.filter(c => c.status === 'returned').length;
-    $('cheqDeposited').textContent = state.cheques.filter(c => c.status === 'deposited').length;
-    $('cheqCount').textContent = filtered.length + ' cheques';
+    if ($('cheqPending')) $('cheqPending').textContent = state.cheques.filter(c => c.status === 'pending').length;
+    if ($('cheqCleared')) $('cheqCleared').textContent = state.cheques.filter(c => c.status === 'cleared').length;
+    if ($('cheqReturned')) $('cheqReturned').textContent = state.cheques.filter(c => c.status === 'returned').length;
+    if ($('cheqDeposited')) $('cheqDeposited').textContent = state.cheques.filter(c => c.status === 'deposited').length;
+    if ($('cheqCount')) $('cheqCount').textContent = filtered.length + ' cheques';
 
     if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No cheques</td></tr>`;
@@ -731,7 +736,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 function renderRoutes() {
     const tbody = $('routeTableBody');
-    $('routeCount').textContent = state.routes.length + ' routes';
+    if ($('routeCount')) $('routeCount').textContent = state.routes.length + ' routes';
     if (!state.routes.length) {
         tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">No routes</td></tr>`;
         return;
@@ -773,6 +778,12 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Error: ' + err.message, 'danger');
         }
     });
+
+    $('routeClearBtn').addEventListener('click', () => {
+        $('routeForm').reset();
+        $('routeEditId').value = '';
+        showToast('Form cleared', 'info');
+    });
 });
 
 window.deleteRoute = async function(id) {
@@ -793,7 +804,7 @@ window.deleteRoute = async function(id) {
 // ================================================================
 function renderUsers() {
     const tbody = $('userTableBody');
-    $('userCount').textContent = state.users.length + ' users';
+    if ($('userCount')) $('userCount').textContent = state.users.length + ' users';
     if (!state.users.length) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No users</td></tr>`;
         return;
@@ -851,6 +862,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    $('userClearBtn').addEventListener('click', () => {
+        $('userForm').reset();
+        $('userEditId').value = '';
+        $('userDeleteBtn').style.display = 'none';
+        showToast('Form cleared', 'info');
+    });
+
     $('userDeleteBtn').addEventListener('click', () => {
         const id = $('userEditId').value;
         if (id) deleteUser(id);
@@ -894,6 +912,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const year = $('reportYear').value;
         const route = $('reportRoute').value;
         generateReport(type, month, year, route);
+    });
+
+    $('reportClearBtn').addEventListener('click', () => {
+        $('reportType').value = 'daily';
+        $('reportMonth').value = new Date().toISOString().slice(0, 7);
+        $('reportYear').value = new Date().getFullYear();
+        $('reportRoute').value = '';
+        $('reportResult').innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
+        showToast('Filters cleared', 'info');
     });
 
     $('reportExportPDF').addEventListener('click', () => {
@@ -1039,9 +1066,7 @@ document.addEventListener('DOMContentLoaded', function() {
             URL.revokeObjectURL(url);
             showToast('Backup exported successfully!');
             const history = $('backupHistory');
-            history.innerHTML =
-                `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` +
-                history.innerHTML;
+            history.innerHTML = `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` + history.innerHTML;
         } catch (err) {
             showToast('Error: ' + err.message, 'danger');
         }
@@ -1057,8 +1082,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!data.transactions || !data.customers || !data.routes) {
                 return showToast('Invalid backup file format', 'danger');
             }
-            const ok = await showConfirm('Restore Backup',
-                'This will overwrite all current data. Are you sure?');
+            const ok = await showConfirm('Restore Backup', 'This will overwrite all current data. Are you sure?');
             if (!ok) return;
 
             const batch = db.batch();
@@ -1123,7 +1147,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Theme toggle
+    $('settingsClearBtn').addEventListener('click', () => {
+        $('setCompanyName').value = 'Jayasinghe Distributors';
+        $('setCurrency').value = 'LKR';
+        $('setDateFormat').value = 'DD/MM/YYYY';
+        showToast('Settings reset to defaults', 'info');
+    });
+
     const themeSwitch = $('settingsThemeSwitch');
     const themeToggle = $('themeToggle');
 
@@ -1144,7 +1174,6 @@ document.addEventListener('DOMContentLoaded', function() {
     themeSwitch?.addEventListener('click', () => setTheme(!state.darkMode));
     themeToggle?.addEventListener('click', () => setTheme(!state.darkMode));
 
-    // Logo upload
     $('logoUploadBtn').addEventListener('click', () => $('logoFileInput').click());
     $('logoFileInput').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -1205,7 +1234,7 @@ function navigateTo(page) {
         backup: 'Backup',
         settings: 'Settings'
     };
-    $('pageTitle').textContent = titles[page] || page;
+    if ($('pageTitle')) $('pageTitle').textContent = titles[page] || page;
 
     closeSidebar();
 
@@ -1213,8 +1242,8 @@ function navigateTo(page) {
     if (page === 'transactions') renderTransactions();
     if (page === 'cheques') renderCheques();
     if (page === 'reports') {
-        $('reportMonth').value = new Date().toISOString().slice(0, 7);
-        $('reportYear').value = new Date().getFullYear();
+        if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
+        if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
     }
 }
 
@@ -1223,7 +1252,6 @@ document.addEventListener('DOMContentLoaded', function() {
         el.addEventListener('click', () => navigateTo(el.dataset.page));
     });
 
-    // Sidebar toggle
     const sidebar = $('sidebar');
     const overlay = $('sidebarOverlay');
 
@@ -1242,7 +1270,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     overlay.addEventListener('click', closeSidebar);
 
-    // Logout
     $('logoutBtn').addEventListener('click', async () => {
         const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
         if (!ok) return;
@@ -1271,8 +1298,10 @@ function checkNotifications() {
 
     if (overdue.length > 0) {
         const dot = $('notifDot');
-        dot.style.display = 'block';
-        dot.textContent = overdue.length;
+        if (dot) {
+            dot.style.display = 'block';
+            dot.textContent = overdue.length;
+        }
         if (Notification.permission === 'granted') {
             new Notification('JDMS - Overdue Cheques', {
                 body: `${overdue.length} cheque(s) are overdue by more than 7 days.`,
@@ -1280,7 +1309,8 @@ function checkNotifications() {
             });
         }
     } else {
-        $('notifDot').style.display = 'none';
+        const dot = $('notifDot');
+        if (dot) dot.style.display = 'none';
     }
 }
 
@@ -1324,11 +1354,42 @@ function applyRoleRestrictions() {
 // INIT
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    $('txnDate').value = getToday();
-    $('reportMonth').value = new Date().toISOString().slice(0, 7);
-    $('reportYear').value = new Date().getFullYear();
+    if ($('txnDate')) $('txnDate').value = getToday();
+    if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
+    if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
 
-    // Start auth
+    // Login form handler
+    $('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = $('loginEmail').value;
+        const password = $('loginPassword').value;
+        const errorDiv = $('loginError');
+        const loginBtn = $('loginBtn');
+
+        errorDiv.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = 'Logging in...';
+
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            showToast('Login successful!', 'success');
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Login';
+        }
+    });
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            $('loginPage').style.display = 'none';
+            $('mainApp').style.display = 'block';
+        } else {
+            $('loginPage').style.display = 'flex';
+            $('mainApp').style.display = 'none';
+        }
+    });
+
     checkAuth();
 
     console.log('🚀 JDMS v2.0 initialized');
