@@ -241,6 +241,14 @@
                 grid-template-columns: 1fr 1fr;
             }
         }
+
+        /* Report date picker visibility */
+        .report-date-group {
+            display: none;
+        }
+        .report-date-group.visible {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -842,6 +850,10 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
+                                <label class="form-label">Date (for Daily)</label>
+                                <input type="date" class="form-control" id="reportDate" />
+                            </div>
+                            <div class="col-md-2">
                                 <label class="form-label">Month (YYYY-MM)</label>
                                 <input type="month" class="form-control" id="reportMonth" />
                             </div>
@@ -849,13 +861,13 @@
                                 <label class="form-label">Year</label>
                                 <input type="number" class="form-control" id="reportYear" placeholder="2025" />
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Route / Customer</label>
                                 <select class="form-select" id="reportRoute">
                                     <option value="">Select</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
+                            <div class="col-md-2 d-flex align-items-end gap-2 flex-wrap">
                                 <button class="btn btn-primary" id="reportGenerateBtn"><i class="bi bi-play-fill"></i> Generate</button>
                                 <button class="btn btn-outline-secondary btn-clear" id="reportClearBtn"><i class="bi bi-eraser"></i> Clear</button>
                                 <button class="btn btn-outline-success" id="reportExportExcel"><i class="bi bi-file-earmark-excel"></i></button>
