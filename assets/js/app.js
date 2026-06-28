@@ -98,7 +98,7 @@ function updateLastUpdated() {
 }
 
 // ================================================================
-// LOGOUT FUNCTION (Reusable)
+// LOGOUT FUNCTION
 // ================================================================
 async function performLogout() {
     const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
@@ -106,14 +106,11 @@ async function performLogout() {
     try {
         await auth.signOut();
         showToast('Logged out successfully');
-        // Reset UI
-        $('loginPage').style.display = 'flex';
-        $('mainApp').style.display = 'none';
+        // Reset UI - will be handled by onAuthStateChanged
         // Clear state
         state.currentUser = null;
         state.userRole = 'viewer';
-        // Reload to clean state
-        setTimeout(() => location.reload(), 500);
+        // No reload needed, onAuthStateChanged will show login page
     } catch (err) {
         showToast('Error during logout: ' + err.message, 'danger');
     }
@@ -147,6 +144,11 @@ function checkAuth() {
             $('userDisplayName').textContent = displayName;
             $('userEmailDisplay').textContent = email;
             $('userRoleBadge').textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
+            
+            // Show main app, hide login
+            $('loginPage').style.display = 'none';
+            $('mainApp').style.display = 'block';
+            
             await loadAllData();
             applyRoleRestrictions();
             initDashboard();
@@ -154,46 +156,38 @@ function checkAuth() {
             updateTopbarStats();
             updateLastUpdated();
         } else {
-            showToast('Please login to continue.', 'warning');
-            // Check if we should auto-login as demo
-            const autoDemo = localStorage.getItem('jdms-auto-demo') === 'true';
-            if (autoDemo) {
-                demoLogin();
-            } else {
-                $('loginPage').style.display = 'flex';
-                $('mainApp').style.display = 'none';
-            }
+            // No user, ensure login page is shown
+            $('loginPage').style.display = 'flex';
+            $('mainApp').style.display = 'none';
+            // Do NOT auto-login - Demo mode is now manual only
         }
     });
 }
 
+// Manual Demo Login (triggered by button)
 async function demoLogin() {
     try {
+        // Set a fake user state
         state.currentUser = { uid: 'demo-user', email: 'demo@jdms.com' };
         state.userRole = 'admin';
         $('userAvatar').textContent = 'D';
         $('userDisplayName').textContent = 'Demo';
         $('userEmailDisplay').textContent = 'demo@jdms.com';
         $('userRoleBadge').textContent = 'Admin';
+        
+        $('loginPage').style.display = 'none';
+        $('mainApp').style.display = 'block';
+        
         await loadAllData();
         applyRoleRestrictions();
         initDashboard();
         updateChequeBadge();
         updateTopbarStats();
         updateLastUpdated();
-        $('loginPage').style.display = 'none';
-        $('mainApp').style.display = 'block';
         showToast('Demo mode: Logged in as Admin', 'info');
-        localStorage.setItem('jdms-auto-demo', 'true');
     } catch (e) {
         console.error('Demo login error:', e);
-        document.body.innerHTML =
-            `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;padding:24px;text-align:center;">
-                <h2>🔐 Authentication Required</h2>
-                <p>Please set up Firebase Authentication or use a valid login.</p>
-                <p style="font-size:13px;color:#64748b;">Check firebase-config.js and enable Email/Password auth.</p>
-                <button class="btn btn-primary" onclick="demoLogin()">Retry Demo Login</button>
-            </div>`;
+        showToast('Error loading demo data: ' + e.message, 'danger');
     }
 }
 
@@ -350,7 +344,6 @@ function renderDashboardStats() {
     if ($('dashProfit')) $('dashProfit').textContent = formatCurrency(profit);
     if ($('dashBanked')) $('dashBanked').textContent = formatCurrency(totalBanked);
 
-    // Update topbar stats
     if ($('topbarTodayCash')) $('topbarTodayCash').textContent = formatCurrencyShort(cashToday);
     if ($('topbarPendingCheques')) $('topbarPendingCheques').textContent = pendingCheques;
 }
@@ -432,7 +425,6 @@ function renderTransactions() {
     }
     if ($('txnCount')) $('txnCount').textContent = filtered.length + ' transactions';
 
-    // Calculate total
     const totalAmount = filtered.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0), 0);
     if ($('txnTotalAmount')) $('txnTotalAmount').textContent = 'Total: ' + formatCurrency(totalAmount);
 
@@ -534,12 +526,44 @@ window.deleteTransaction = async function(id) {
 // TRANSACTION FORM EVENTS
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Set today's date
     if ($('txnDate')) $('txnDate').value = getToday();
     if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
     if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
 
-    // Transaction form submit
+    // --- LOGIN CLEAR BUTTON ---
+    $('loginClearBtn').addEventListener('click', function() {
+        $('loginEmail').value = '';
+        $('loginPassword').value = '';
+        $('loginError').textContent = '';
+        showToast('Fields cleared', 'info');
+    });
+
+    // --- LOGIN FORM ---
+    $('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = $('loginEmail').value;
+        const password = $('loginPassword').value;
+        const errorDiv = $('loginError');
+        const loginBtn = $('loginBtn');
+
+        errorDiv.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<span class="loading-spinner"></span> Logging in...';
+
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+            showToast('Login successful!', 'success');
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Login';
+        }
+    });
+
+    // --- DEMO LOGIN BUTTON ---
+    $('demoLoginBtn').addEventListener('click', demoLogin);
+
+    // --- TRANSACTION FORM ---
     $('transactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = $('txnEditId').value;
@@ -570,7 +594,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Clear button
     $('txnClearBtn').addEventListener('click', () => {
         $('transactionForm').reset();
         $('txnDate').value = getToday();
@@ -592,8 +615,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('txnSearch').addEventListener('input', renderTransactions);
-
-    // Refresh button
     $('txnRefreshBtn').addEventListener('click', async () => {
         await loadAllData();
         renderAll();
@@ -601,7 +622,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showToast('Data refreshed!', 'info');
     });
 
-    // View Report button
     $('txnViewReportBtn').addEventListener('click', () => {
         navigateTo('reports');
         setTimeout(() => {
@@ -611,7 +631,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
 
-    // Export buttons
     $('txnExportExcel').addEventListener('click', () => {
         const data = state.transactions.map(t => ({
             ID: t.id,
@@ -1067,7 +1086,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ];
             const sampleChequeNos = ['CHQ-001', 'CHQ-002', 'CHQ-003', 'CHQ-004', 'CHQ-005'];
 
-            // Add routes
             let routeCount = 0;
             for (const route of sampleRoutes) {
                 if (!state.routes.some(r => r.name === route)) {
@@ -1077,7 +1095,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             log.innerHTML += `<div class="text-success">✅ Added ${routeCount} routes</div>`;
 
-            // Add customers
             let custCount = 0;
             for (const cust of sampleCustomers) {
                 if (!state.customers.some(c => c.name === cust)) {
@@ -1095,7 +1112,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             log.innerHTML += `<div class="text-success">✅ Added ${custCount} customers</div>`;
 
-            // Generate transactions for the last 30 days
             let txnCount = 0;
             const today = new Date();
             const routes = sampleRoutes;
@@ -1106,11 +1122,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 date.setDate(date.getDate() - d);
                 const dateStr = date.toISOString().split('T')[0];
 
-                // Skip weekends (Saturday=6, Sunday=0)
                 const day = date.getDay();
                 if (day === 0 || day === 6) continue;
 
-                // 3-5 transactions per day
                 const numTxns = 2 + Math.floor(Math.random() * 4);
                 for (let i = 0; i < numTxns; i++) {
                     const route = routes[Math.floor(Math.random() * routes.length)];
@@ -1174,7 +1188,6 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.disabled = false;
     });
 
-    // Clear all data
     $('clearSampleDataBtn').addEventListener('click', async () => {
         const ok = await showConfirm('Clear All Data', 'This will delete ALL transactions, customers, and routes. Are you sure?');
         if (!ok) return;
@@ -1185,7 +1198,6 @@ document.addEventListener('DOMContentLoaded', function() {
         log.innerHTML = '<div class="text-warning">⏳ Clearing all data...</div>';
 
         try {
-            // Delete all transactions
             const txns = await db.collection('transactions').get();
             let count = 0;
             for (const doc of txns.docs) {
@@ -1194,7 +1206,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             log.innerHTML += `<div class="text-danger">🗑️ Deleted ${count} transactions</div>`;
 
-            // Delete all customers
             const custs = await db.collection('customers').get();
             let custCount = 0;
             for (const doc of custs.docs) {
@@ -1203,7 +1214,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             log.innerHTML += `<div class="text-danger">🗑️ Deleted ${custCount} customers</div>`;
 
-            // Delete all routes
             const routes = await db.collection('routes').get();
             let routeCount = 0;
             for (const doc of routes.docs) {
@@ -1263,20 +1273,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if ($('reportMonth')) $('reportMonth').value = new Date().toISOString().slice(0, 7);
             if ($('reportYear')) $('reportYear').value = new Date().getFullYear();
         }
-        if (page === 'sample-data') {
-            // Refresh the sample data page
-        }
     }
 
-    // Make navigateTo global
     window.navigateTo = navigateTo;
 
-    // Sidebar navigation
     qsa('.sidebar-nav .nav-item[data-page]').forEach(el => {
         el.addEventListener('click', () => navigateTo(el.dataset.page));
     });
 
-    // Sidebar toggle
     const sidebar = $('sidebar');
     const overlay = $('sidebarOverlay');
 
@@ -1298,19 +1302,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // ================================================================
     // LOGOUT - Multiple triggers
     // ================================================================
-    // Sidebar logout
     $('logoutBtn').addEventListener('click', performLogout);
-
-    // Topbar logout (dropdown)
     $('topbarLogoutBtn').addEventListener('click', (e) => {
         e.preventDefault();
         performLogout();
     });
-
-    // Topbar logout (alternate)
     $('topbarLogoutBtnAlt').addEventListener('click', performLogout);
 
-    // User settings / profile (placeholder)
     $('userProfileBtn').addEventListener('click', (e) => {
         e.preventDefault();
         showToast('Profile page coming soon!', 'info');
@@ -1319,13 +1317,12 @@ document.addEventListener('DOMContentLoaded', function() {
     $('userSettingsBtn').addEventListener('click', (e) => {
         e.preventDefault();
         navigateTo('settings');
-        // Close dropdown
         const dropdown = bootstrap.Dropdown.getInstance($('userDropdownToggle'));
         if (dropdown) dropdown.hide();
     });
 
     // ================================================================
-    // CHEQUES (continued)
+    // CHEQUES
     // ================================================================
     window.updateChequeStatus = async function(txnId, newStatus) {
         try {
@@ -1345,22 +1342,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // KEYBOARD SHORTCUTS
     // ================================================================
     document.addEventListener('keydown', (e) => {
-        // Ctrl+T -> Transactions
         if (e.ctrlKey && e.key === 't') {
             e.preventDefault();
             navigateTo('transactions');
         }
-        // Ctrl+R -> Reports
         if (e.ctrlKey && e.key === 'r') {
             e.preventDefault();
             navigateTo('reports');
         }
-        // Ctrl+D -> Dashboard
         if (e.ctrlKey && e.key === 'd') {
             e.preventDefault();
             navigateTo('dashboard');
         }
-        // Escape -> Close sidebar
         if (e.key === 'Escape') {
             closeSidebar();
         }
@@ -1434,41 +1427,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ================================================================
-    // LOGIN
-    // ================================================================
-    $('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = $('loginEmail').value;
-        const password = $('loginPassword').value;
-        const errorDiv = $('loginError');
-        const loginBtn = $('loginBtn');
-
-        errorDiv.textContent = '';
-        loginBtn.disabled = true;
-        loginBtn.innerHTML = '<span class="loading-spinner"></span> Logging in...';
-
-        try {
-            await auth.signInWithEmailAndPassword(email, password);
-            localStorage.setItem('jdms-auto-demo', 'false');
-            showToast('Login successful!', 'success');
-            $('loginPage').style.display = 'none';
-            $('mainApp').style.display = 'block';
-        } catch (err) {
-            errorDiv.textContent = err.message;
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = 'Login';
-        }
-    });
-
-    // Demo login button
-    $('demoLoginBtn').addEventListener('click', () => {
-        demoLogin();
-    });
-
-    // ================================================================
     // INIT
     // ================================================================
-    // Check auth on load
     checkAuth();
 
     console.log('🚀 JDMS v2.0 initialized');
