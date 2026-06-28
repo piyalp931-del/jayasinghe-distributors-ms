@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="style.css" />
 
     <style>
+        /* User dropdown styles */
         .user-dropdown-toggle {
             background: none;
             border: none;
@@ -73,7 +74,7 @@
             color: var(--text-muted);
         }
         .dropdown-menu.user-menu {
-            min-width: 200px;
+            min-width: 220px;
             padding: 8px 0;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -87,6 +88,7 @@
             align-items: center;
             gap: 10px;
             color: var(--text);
+            cursor: pointer;
         }
         .dropdown-menu.user-menu .dropdown-item:hover {
             background: var(--bg);
@@ -179,6 +181,66 @@
                 display: none;
             }
         }
+
+        /* Profile Page Styles */
+        .profile-avatar-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--primary-light);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: 700;
+            margin: 0 auto 16px;
+            border: 4px solid var(--border);
+        }
+        .profile-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .profile-info-item .label {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .profile-info-item .value {
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+        }
+        .profile-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .profile-stat-box {
+            background: var(--bg);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .profile-stat-box .num {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .profile-stat-box .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        @media (max-width: 576px) {
+            .profile-stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -206,12 +268,7 @@
                 </button>
                 <div id="loginError" class="auth-error text-center mt-2"></div>
             </form>
-            <div class="text-center mt-3">
-                <button class="btn btn-outline-success btn-sm" id="demoLoginBtn">
-                    <i class="bi bi-play-circle"></i> Demo Login
-                </button>
-                <p class="text-muted mt-2" style="font-size:13px;">Demo: admin@test.com / Admin123</p>
-            </div>
+            <p class="text-center text-muted mt-3" style="font-size:13px;">Enter your credentials to login</p>
         </div>
     </div>
 
@@ -254,6 +311,9 @@
                 </button>
 
                 <div class="nav-label">Admin</div>
+                <button class="nav-item" data-page="profile">
+                    <i class="bi bi-person-circle"></i> Profile
+                </button>
                 <button class="nav-item" data-page="users">
                     <i class="bi bi-person-badge"></i> Users
                 </button>
@@ -807,6 +867,88 @@
 
                     <div class="stat-card" id="reportResult">
                         <div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>
+                    </div>
+                </section>
+
+                <!-- ===== PROFILE ===== -->
+                <section class="page-section" id="page-profile">
+                    <div class="row g-4">
+                        <div class="col-lg-4">
+                            <div class="stat-card text-center">
+                                <div class="profile-avatar-large" id="profileAvatar">U</div>
+                                <h5 id="profileDisplayName" class="fw-bold">User</h5>
+                                <p class="text-muted" id="profileEmail">user@example.com</p>
+                                <span class="badge bg-primary" id="profileRoleBadge">Viewer</span>
+                                <hr class="my-3" />
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-box">
+                                        <div class="num" id="profileTotalTxns">0</div>
+                                        <div class="label">Transactions</div>
+                                    </div>
+                                    <div class="profile-stat-box">
+                                        <div class="num" id="profileTotalCustomers">0</div>
+                                        <div class="label">Customers</div>
+                                    </div>
+                                    <div class="profile-stat-box">
+                                        <div class="num" id="profileTotalCheques">0</div>
+                                        <div class="label">Cheques</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="stat-card">
+                                <h6 class="fw-semibold mb-3"><i class="bi bi-person-circle me-2"></i>Profile Information</h6>
+                                <div class="profile-info-item">
+                                    <span class="label">User ID</span>
+                                    <span class="value" id="profileUserId">-</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="label">Email</span>
+                                    <span class="value" id="profileEmail2">-</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="label">Role</span>
+                                    <span class="value" id="profileRole2">-</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="label">Account Created</span>
+                                    <span class="value" id="profileCreated">-</span>
+                                </div>
+                                <div class="profile-info-item">
+                                    <span class="label">Last Login</span>
+                                    <span class="value" id="profileLastLogin">-</span>
+                                </div>
+
+                                <hr class="my-3" />
+
+                                <h6 class="fw-semibold mb-3"><i class="bi bi-key me-2"></i>Change Password</h6>
+                                <form id="changePasswordForm">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Current Password</label>
+                                            <input type="password" class="form-control" id="currentPassword" placeholder="Current password" required />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">New Password</label>
+                                            <input type="password" class="form-control" id="newPassword" placeholder="New password (min 6 chars)" required />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Confirm Password</label>
+                                            <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm password" required />
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <button type="submit" class="btn btn-primary" id="changePasswordBtn">
+                                            <i class="bi bi-check-lg"></i> Change Password
+                                        </button>
+                                        <span id="passwordChangeStatus" class="text-muted align-self-center" style="font-size:13px;"></span>
+                                    </div>
+                                    <div id="passwordChangeError" class="auth-error mt-2"></div>
+                                    <div id="passwordChangeSuccess" class="text-success mt-2" style="font-size:14px;display:none;"></div>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
