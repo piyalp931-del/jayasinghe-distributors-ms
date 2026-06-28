@@ -78,8 +78,7 @@ function showToast(message, type = 'success') {
     el.className = 'toast align-items-center text-white border-0 show';
     el.style.background = bg;
     el.setAttribute('role', 'alert');
-    el.innerHTML =
-        `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
     container.appendChild(el);
     setTimeout(() => { el.classList.remove('show');
         setTimeout(() => el.remove(), 300); }, 4000);
@@ -112,7 +111,7 @@ function updateLastUpdated() {
 }
 
 // ================================================================
-// LOGOUT FUNCTION - FIXED
+// LOGOUT FUNCTION
 // ================================================================
 async function performLogout() {
     const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
@@ -148,7 +147,7 @@ async function performLogout() {
 }
 
 // ================================================================
-// AUTH - No Demo Login
+// AUTH
 // ================================================================
 function checkAuth() {
     auth.onAuthStateChanged(async user => {
@@ -404,6 +403,7 @@ function renderAll() {
     renderUsers();
     renderDashboardStats();
     populateSelects();
+    populateReportRouteSelect(); // Populate report dropdown dynamically
     updateChequeBadge();
     updateTopbarStats();
     updateLastUpdated();
@@ -413,7 +413,8 @@ function renderAll() {
 // POPULATE SELECTS
 // ================================================================
 function populateSelects() {
-    const routeSelects = ['txnRoute', 'reportRoute'];
+    // Only populate transaction route dropdown here
+    const routeSelects = ['txnRoute'];
     routeSelects.forEach(id => {
         const sel = $(id);
         if (!sel) return;
@@ -443,6 +444,49 @@ function populateSelects() {
 }
 
 // ================================================================
+// POPULATE REPORT ROUTE/CUSTOMER DROPDOWN (DYNAMIC)
+// ================================================================
+function populateReportRouteSelect() {
+    const reportTypeEl = $('reportType');
+    const reportRouteEl = $('reportRoute');
+    if (!reportTypeEl || !reportRouteEl) return;
+
+    const type = reportTypeEl.value;
+    const currentVal = reportRouteEl.value;
+
+    // Clear existing options
+    reportRouteEl.innerHTML = '<option value="">Select</option>';
+
+    if (type === 'route') {
+        // Populate with Routes
+        state.routes.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.name;
+            opt.textContent = r.name;
+            reportRouteEl.appendChild(opt);
+        });
+    } else if (type === 'customer') {
+        // Populate with Customers
+        state.customers.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name;
+            opt.textContent = c.name + (c.phone ? ' (' + c.phone + ')' : '');
+            reportRouteEl.appendChild(opt);
+        });
+    } else {
+        // For other report types, keep only the default "Select" option
+        // Optionally add a placeholder
+        reportRouteEl.innerHTML = '<option value="">Select</option>';
+    }
+
+    // Restore previously selected value if it exists in the new options
+    if (currentVal) {
+        const exists = Array.from(reportRouteEl.options).some(opt => opt.value === currentVal);
+        if (exists) reportRouteEl.value = currentVal;
+    }
+}
+
+// ================================================================
 // DASHBOARD
 // ================================================================
 function initDashboard() {
@@ -465,10 +509,8 @@ function renderDashboardStats() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const monthTxns = state.transactions.filter(t => t.date >= monthStart);
-    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (
-        parseFloat(t.credit) || 0), 0);
-    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0),
-        0);
+    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0), 0);
+    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
     const profit = monthlyIncome - monthlyExpenses;
 
     const dashTodayCash = $('dashTodayCash');
@@ -500,8 +542,7 @@ function renderRecentTransactions() {
     if (!container) return;
     const recent = state.transactions.slice(0, 5);
     if (!recent.length) {
-        container.innerHTML =
-            `<div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>`;
+        container.innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>`;
         return;
     }
     container.innerHTML = recent.map(t => `
@@ -583,8 +624,7 @@ function renderTransactions() {
     if (totalEl) totalEl.textContent = 'Total: ' + formatCurrency(totalAmount);
 
     if (!filtered.length) {
-        tbody.innerHTML =
-            `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
@@ -952,16 +992,14 @@ window.deleteUser = async function(docId) {
 };
 
 // ================================================================
-// REPORTS - FIXED for Daily
+// REPORTS
 // ================================================================
 function generateReport(type, month, year, route, date) {
     const container = $('reportResult');
     if (!container) return;
     let data = [...state.transactions];
 
-    // Determine filters based on type
     if (type === 'daily') {
-        // Use the date if provided, else use today
         const filterDate = date || getToday();
         data = data.filter(t => t.date === filterDate);
     } else if (type === 'weekly') {
@@ -1009,8 +1047,12 @@ function generateReport(type, month, year, route, date) {
         filterDesc = month || '';
     } else if (type === 'yearly') {
         filterDesc = year || '';
-    } else {
+    } else if (type === 'route') {
         filterDesc = route || '';
+    } else if (type === 'customer') {
+        filterDesc = route || '';
+    } else {
+        filterDesc = '';
     }
 
     let html = `
@@ -1096,6 +1138,7 @@ function navigateTo(page) {
         if (reportMonth) reportMonth.value = new Date().toISOString().slice(0, 7);
         if (reportYear) reportYear.value = new Date().getFullYear();
         if (reportDate) reportDate.value = getToday();
+        populateReportRouteSelect();
     }
 }
 window.navigateTo = navigateTo;
@@ -1157,8 +1200,7 @@ async function generateSampleData() {
             if (!state.customers.some(c => c.name === cust)) {
                 await db.collection('customers').add({
                     name: cust,
-                    phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString()
-                        .padStart(6, '0'),
+                    phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
                     email: cust.toLowerCase().replace(/\s/g, '') + '@gmail.com',
                     address: 'Colombo, Sri Lanka',
                     creditLimit: Math.round((Math.random() * 100 + 10) * 100) / 100,
@@ -1190,8 +1232,7 @@ async function generateSampleData() {
                 const hasCheque = Math.random() > 0.6;
                 const cheque = hasCheque ? Math.round((Math.random() * 30 + 5) * 100) / 100 : 0;
                 const chequeNo = hasCheque ? sampleChequeNos[Math.floor(Math.random() * sampleChequeNos.length)] : null;
-                const bank = hasCheque ? ['BOC', 'CBSL', 'Sampath', 'Commercial', 'HNB'][Math.floor(Math.random() *
-                    5)] : null;
+                const bank = hasCheque ? ['BOC', 'CBSL', 'Sampath', 'Commercial', 'HNB'][Math.floor(Math.random() * 5)] : null;
                 const credit = Math.round((Math.random() * 20) * 100) / 100;
                 const expense = Math.round((Math.random() * 10) * 100) / 100;
                 const petrol = Math.round((Math.random() * 8) * 100) / 100;
@@ -1214,20 +1255,15 @@ async function generateSampleData() {
                     credit: credit,
                     advance: 0,
                     expense: expense,
-                    expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math
-                    .random() * 4)] : null,
+                    expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math.random() * 4)] : null,
                     petrol: petrol,
                     km: km.toString(),
                     banked: banked,
                     primary: customer.split(' ')[0],
                     driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
-                    notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy',
-                        'Delay due to traffic'
-                    ][Math.floor(Math.random() * 4)] : null,
-                    chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() *
-                    3)] : 'pending',
-                    createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2,
-                        '0') + ':00:00').toISOString()
+                    notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
+                    chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() * 3)] : 'pending',
+                    createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2, '0') + ':00:00').toISOString()
                 };
 
                 await db.collection('transactions').add(txn);
@@ -1268,19 +1304,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportDate = $('reportDate');
     if (reportDate) reportDate.value = getToday();
 
-    // --- Report type toggle for date input visibility ---
+    // --- Report type toggle for dynamic dropdown ---
     const reportType = $('reportType');
-    const dateGroup = document.querySelector('.report-date-group') || document.querySelector('.col-md-2:has(#reportDate)');
-    if (reportType && dateGroup) {
-        function toggleDateVisibility() {
-            if (reportType.value === 'daily') {
-                dateGroup.classList.add('visible');
-            } else {
-                dateGroup.classList.remove('visible');
-            }
-        }
-        reportType.addEventListener('change', toggleDateVisibility);
-        toggleDateVisibility();
+    if (reportType) {
+        reportType.addEventListener('change', populateReportRouteSelect);
     }
 
     // --- LOGIN CLEAR BUTTON ---
@@ -1613,8 +1640,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (editId) {
                     const updates = { role, updatedAt: new Date().toISOString() };
                     if (password && password.length >= 6) {
-                        showToast('Password update requires re-authentication. Use Firebase Console.',
-                        'warning');
+                        showToast('Password update requires re-authentication. Use Firebase Console.', 'warning');
                     }
                     await db.collection('users').doc(editId).update(updates);
                     showToast('User updated!');
@@ -1692,9 +1718,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportRoute) reportRoute.value = '';
             if (reportDate) reportDate.value = getToday();
             if (reportResult) {
-                reportResult.innerHTML =
-                    `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
+                reportResult.innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
             }
+            // Repopulate the dropdown after clearing
+            populateReportRouteSelect();
             showToast('Filters cleared', 'info');
         });
     }
@@ -1759,8 +1786,7 @@ document.addEventListener('DOMContentLoaded', function() {
             rows.forEach(row => {
                 const cells = qsa('td', row);
                 if (cells.length >= 2) {
-                    data.push({ [headers[0]]: cells[0].textContent.trim(), [headers[1]]: cells[1]
-                            .textContent.trim() });
+                    data.push({ [headers[0]]: cells[0].textContent.trim(), [headers[1]]: cells[1].textContent.trim() });
                 }
             });
             const ws = XLSX.utils.json_to_sheet(data);
@@ -1802,9 +1828,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast('Backup exported successfully!');
                 const history = $('backupHistory');
                 if (history) {
-                    history.innerHTML =
-                        `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` +
-                        history.innerHTML;
+                    history.innerHTML = `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` + history.innerHTML;
                 }
             } catch (err) {
                 showToast('Error: ' + err.message, 'danger');
@@ -1816,8 +1840,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (backupRestore) {
         backupRestore.addEventListener('click', async () => {
             const fileInput = $('backupFileInput');
-            if (!fileInput || !fileInput.files.length) return showToast('Select a JSON backup file',
-            'warning');
+            if (!fileInput || !fileInput.files.length) return showToast('Select a JSON backup file', 'warning');
             const file = fileInput.files[0];
             try {
                 const text = await file.text();
@@ -1825,8 +1848,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!data.transactions || !data.customers || !data.routes) {
                     return showToast('Invalid backup file format', 'danger');
                 }
-                const ok = await showConfirm('Restore Backup',
-                    'This will overwrite all current data. Are you sure?');
+                const ok = await showConfirm('Restore Backup', 'This will overwrite all current data. Are you sure?');
                 if (!ok) return;
 
                 const batch = db.batch();
@@ -1991,8 +2013,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSampleDataBtn = $('clearSampleDataBtn');
     if (clearSampleDataBtn) {
         clearSampleDataBtn.addEventListener('click', async () => {
-            const ok = await showConfirm('Clear All Data',
-                'This will delete ALL transactions, customers, and routes. Are you sure?');
+            const ok = await showConfirm('Clear All Data', 'This will delete ALL transactions, customers, and routes. Are you sure?');
             if (!ok) return;
 
             const log = $('sampleDataLog');
@@ -2113,8 +2134,7 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebarToggle.addEventListener('click', () => {
             const sidebar = $('sidebar');
             const overlay = $('sidebarOverlay');
-            if (sidebar) sidebar.classList.contains('open') ? closeSidebar() : (sidebar.classList.add(
-                'open'), overlay?.classList.add('open'));
+            if (sidebar) sidebar.classList.contains('open') ? closeSidebar() : (sidebar.classList.add('open'), overlay?.classList.add('open'));
         });
     }
 
@@ -2217,7 +2237,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized (Reports Fixed)');
+console.log('🚀 JDMS v2.0 initialized (Route/Customer Filter Fixed)');
 console.log('📦 Jayasinghe Distributors Management System');
 console.log('🔷 Blue & Gold Theme');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
