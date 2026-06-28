@@ -1,5 +1,5 @@
 // ================================================================
-// assets/js/app.js - Main Application Logic
+// assets/js/app.js - Main Application Logic (FULLY FIXED)
 // ================================================================
 
 // ================================================================
@@ -152,7 +152,6 @@ function checkAuth() {
             const email = user.email || 'U';
             const displayName = email.split('@')[0] || 'User';
             
-            // Safely update UI elements
             const avatar = $('userAvatar');
             const displayNameEl = $('userDisplayName');
             const emailDisplay = $('userEmailDisplay');
@@ -162,7 +161,6 @@ function checkAuth() {
             if (emailDisplay) emailDisplay.textContent = email;
             if (roleBadge) roleBadge.textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
             
-            // Show main app, hide login
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'none';
@@ -175,7 +173,6 @@ function checkAuth() {
             updateTopbarStats();
             updateLastUpdated();
         } else {
-            // No user, ensure login page is shown
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'flex';
@@ -185,15 +182,13 @@ function checkAuth() {
 }
 
 // ================================================================
-// DEMO LOGIN (Manual - triggered by button)
+// DEMO LOGIN
 // ================================================================
 async function demoLogin() {
     try {
-        // Set a fake user state
         state.currentUser = { uid: 'demo-user', email: 'demo@jdms.com' };
         state.userRole = 'admin';
         
-        // Safely update UI elements
         const avatar = $('userAvatar');
         const displayNameEl = $('userDisplayName');
         const emailDisplay = $('userEmailDisplay');
@@ -242,21 +237,38 @@ function updateTopbarStats() {
 }
 
 // ================================================================
-// LOAD DATA
+// LOAD DATA - FIXED: Store both Firestore doc ID and custom ID
 // ================================================================
 async function loadAllData() {
     try {
         const txnSnap = await db.collection('transactions').orderBy('date', 'desc').get();
-        state.transactions = txnSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        state.transactions = txnSnap.docs.map(d => {
+            const data = d.data();
+            return {
+                ...data,
+                docId: d.id,           // Firestore document ID
+                customId: data.id || null, // Custom ID from the data (e.g., TXN-...)
+                id: d.id               // For backward compatibility
+            };
+        });
 
         const custSnap = await db.collection('customers').orderBy('name').get();
-        state.customers = custSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        state.customers = custSnap.docs.map(d => {
+            const data = d.data();
+            return { ...data, docId: d.id, id: d.id };
+        });
 
         const routeSnap = await db.collection('routes').orderBy('name').get();
-        state.routes = routeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        state.routes = routeSnap.docs.map(d => {
+            const data = d.data();
+            return { ...data, docId: d.id, id: d.id };
+        });
 
         const userSnap = await db.collection('users').get();
-        state.users = userSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        state.users = userSnap.docs.map(d => {
+            const data = d.data();
+            return { ...data, docId: d.id, id: d.id };
+        });
 
         const settingsSnap = await db.collection('settings').doc('app').get();
         if (settingsSnap.exists) {
@@ -270,10 +282,12 @@ async function loadAllData() {
             if (dateFormat) dateFormat.value = s.dateFormat || 'DD/MM/YYYY';
         }
 
+        // FIXED: Store both docId and customId for cheques
         state.cheques = state.transactions
             .filter(t => t.cheque && parseFloat(t.cheque) > 0)
             .map(t => ({
-                id: t.id,
+                docId: t.docId,           // Firestore document ID (use this for updates!)
+                customId: t.customId,     // Custom ID (for display)
                 date: t.date,
                 route: t.route,
                 customer: t.customer || 'N/A',
@@ -282,7 +296,9 @@ async function loadAllData() {
                 amount: parseFloat(t.cheque) || 0,
                 chequeDate: t.chequeDate || t.date,
                 status: t.chequeStatus || 'pending',
-                transactionId: t.id,
+                transactionId: t.docId,
+                // For backward compatibility
+                id: t.docId
             }));
 
         renderAll();
@@ -295,7 +311,7 @@ async function loadAllData() {
 }
 
 // ================================================================
-// RENDER ALL - All functions are defined globally
+// RENDER ALL
 // ================================================================
 function renderAll() {
     renderTransactions();
@@ -469,6 +485,7 @@ function renderTransactions() {
         filtered = filtered.filter(t =>
             (t.route || '').toLowerCase().includes(searchVal) ||
             (t.customer || '').toLowerCase().includes(searchVal) ||
+            (t.customId || '').toLowerCase().includes(searchVal) ||
             (t.id || '').toLowerCase().includes(searchVal)
         );
     }
@@ -486,7 +503,7 @@ function renderTransactions() {
 
     tbody.innerHTML = filtered.slice(0, 50).map(t => `
             <tr>
-                <td><code style="font-size:12px;">${t.id || 'N/A'}</code></td>
+                <td><code style="font-size:12px;">${t.customId || t.id || 'N/A'}</code></td>
                 <td>${formatDate(t.date)}</td>
                 <td>${t.route || '-'}</td>
                 <td>${t.customer || '-'}</td>
@@ -495,8 +512,8 @@ function renderTransactions() {
                 <td>${formatCurrency(t.credit)}</td>
                 <td>${formatCurrency(t.banked)}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
@@ -528,9 +545,12 @@ function getTransactionFormData() {
     };
 }
 
-window.editTransaction = async function(id) {
-    const txn = state.transactions.find(t => t.id === id);
-    if (!txn) return;
+window.editTransaction = async function(docId) {
+    const txn = state.transactions.find(t => t.docId === docId);
+    if (!txn) {
+        showToast('Transaction not found', 'danger');
+        return;
+    }
     const txnDate = $('txnDate');
     const txnRoute = $('txnRoute');
     const txnDeliveryDate = $('txnDeliveryDate');
@@ -577,7 +597,7 @@ window.editTransaction = async function(id) {
     if (txnPrimary) txnPrimary.value = txn.primary || '';
     if (txnDriver) txnDriver.value = txn.driver || '';
     if (txnNotes) txnNotes.value = txn.notes || '';
-    if (txnEditId) txnEditId.value = id;
+    if (txnEditId) txnEditId.value = docId;
     if (txnUpdateBtn) txnUpdateBtn.style.display = 'inline-block';
     if (txnDeleteBtn) txnDeleteBtn.style.display = 'inline-block';
     if (txnSaveBtn) txnSaveBtn.textContent = 'Update';
@@ -585,11 +605,11 @@ window.editTransaction = async function(id) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-window.deleteTransaction = async function(id) {
+window.deleteTransaction = async function(docId) {
     const ok = await showConfirm('Delete Transaction', 'Are you sure you want to delete this transaction?');
     if (!ok) return;
     try {
-        await db.collection('transactions').doc(id).delete();
+        await db.collection('transactions').doc(docId).delete();
         showToast('Transaction deleted.');
         await loadAllData();
         renderAll();
@@ -600,7 +620,7 @@ window.deleteTransaction = async function(id) {
 };
 
 // ================================================================
-// CUSTOMERS CRUD (Global function)
+// CUSTOMERS CRUD
 // ================================================================
 function renderCustomers() {
     const tbody = $('custTableBody');
@@ -631,15 +651,15 @@ function renderCustomers() {
                 <td>${formatCurrency(c.creditLimit)}</td>
                 <td>${formatCurrency(c.balance || 0)}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editCustomer('${c.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer('${c.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editCustomer('${c.docId}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer('${c.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
 }
 
-window.editCustomer = function(id) {
-    const c = state.customers.find(c => c.id === id);
+window.editCustomer = function(docId) {
+    const c = state.customers.find(c => c.docId === docId);
     if (!c) return;
     const custName = $('custName');
     const custPhone = $('custPhone');
@@ -653,16 +673,16 @@ window.editCustomer = function(id) {
     if (custEmail) custEmail.value = c.email || '';
     if (custAddress) custAddress.value = c.address || '';
     if (custCreditLimit) custCreditLimit.value = c.creditLimit || '';
-    if (custEditId) custEditId.value = id;
+    if (custEditId) custEditId.value = docId;
     if (custDeleteBtn) custDeleteBtn.style.display = 'inline-block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-window.deleteCustomer = async function(id) {
+window.deleteCustomer = async function(docId) {
     const ok = await showConfirm('Delete Customer', 'This will also remove all associated transactions?');
     if (!ok) return;
     try {
-        await db.collection('customers').doc(id).delete();
+        await db.collection('customers').doc(docId).delete();
         showToast('Customer deleted.');
         await loadAllData();
         renderAll();
@@ -672,7 +692,7 @@ window.deleteCustomer = async function(id) {
 };
 
 // ================================================================
-// CHEQUES
+// CHEQUES - FIXED: Use docId for updates
 // ================================================================
 function renderCheques() {
     const tbody = $('cheqTableBody');
@@ -723,7 +743,7 @@ function renderCheques() {
                 <td>${formatDate(c.chequeDate)}</td>
                 <td><span class="badge-status ${c.status}">${c.status}</span></td>
                 <td>
-                    <select class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="updateChequeStatus('${c.id}', this.value)">
+                    <select class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="updateChequeStatus('${c.docId}', this.value)">
                         <option value="pending" ${c.status==='pending'?'selected':''}>Pending</option>
                         <option value="cleared" ${c.status==='cleared'?'selected':''}>Cleared</option>
                         <option value="returned" ${c.status==='returned'?'selected':''}>Returned</option>
@@ -734,14 +754,20 @@ function renderCheques() {
         `).join('');
 }
 
-window.updateChequeStatus = async function(txnId, newStatus) {
+// FIXED: Use docId (Firestore document ID) for update
+window.updateChequeStatus = async function(docId, newStatus) {
+    if (!docId) {
+        showToast('Invalid cheque ID', 'danger');
+        return;
+    }
     try {
-        await db.collection('transactions').doc(txnId).update({ chequeStatus: newStatus });
+        await db.collection('transactions').doc(docId).update({ chequeStatus: newStatus });
         showToast('Cheque status updated to ' + newStatus);
         await loadAllData();
         renderAll();
     } catch (err) {
         showToast('Error: ' + err.message, 'danger');
+        console.error('Update error:', err);
     }
 };
 
@@ -762,18 +788,18 @@ function renderRoutes() {
                 <td>${i+1}</td>
                 <td><strong>${r.name}</strong></td>
                 <td>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
     populateSelects();
 }
 
-window.deleteRoute = async function(id) {
+window.deleteRoute = async function(docId) {
     const ok = await showConfirm('Delete Route', 'Are you sure?');
     if (!ok) return;
     try {
-        await db.collection('routes').doc(id).delete();
+        await db.collection('routes').doc(docId).delete();
         showToast('Route deleted.');
         await loadAllData();
         renderAll();
@@ -800,15 +826,15 @@ function renderUsers() {
                 <td><span class="badge bg-primary">${u.role || 'viewer'}</span></td>
                 <td>${u.created ? formatDate(u.created) : '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editUser('${u.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.id}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editUser('${u.docId}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${u.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
 }
 
-window.editUser = function(id) {
-    const u = state.users.find(u => u.id === id);
+window.editUser = function(docId) {
+    const u = state.users.find(u => u.docId === docId);
     if (!u) return;
     const userEmail = $('userEmail');
     const userPassword = $('userPassword');
@@ -818,19 +844,19 @@ window.editUser = function(id) {
     if (userEmail) userEmail.value = u.email || '';
     if (userPassword) userPassword.value = '';
     if (userRole) userRole.value = u.role || 'viewer';
-    if (userEditId) userEditId.value = id;
+    if (userEditId) userEditId.value = docId;
     if (userDeleteBtn) userDeleteBtn.style.display = 'inline-block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-window.deleteUser = async function(id) {
-    if (id === state.currentUser?.uid) {
+window.deleteUser = async function(docId) {
+    if (docId === state.currentUser?.uid) {
         return showToast('Cannot delete yourself', 'warning');
     }
     const ok = await showConfirm('Delete User', 'Are you sure?');
     if (!ok) return;
     try {
-        await db.collection('users').doc(id).delete();
+        await db.collection('users').doc(docId).delete();
         showToast('User deleted.');
         await loadAllData();
         renderAll();
@@ -966,9 +992,6 @@ function navigateTo(page) {
 }
 window.navigateTo = navigateTo;
 
-// ================================================================
-// SIDEBAR
-// ================================================================
 function closeSidebar() {
     const sidebar = $('sidebar');
     const overlay = $('sidebarOverlay');
@@ -992,7 +1015,7 @@ function applyRoleRestrictions() {
 }
 
 // ================================================================
-// SAMPLE DATA FUNCTIONS
+// SAMPLE DATA GENERATOR - FIXED
 // ================================================================
 async function generateSampleData() {
     const btn = $('generateSampleDataBtn');
@@ -1040,6 +1063,8 @@ async function generateSampleData() {
 
         let txnCount = 0;
         const today = new Date();
+
+        // Ensure we have at least some sample data even if there's no data yet
         const routes = sampleRoutes;
         const customers = sampleCustomers;
 
@@ -1065,8 +1090,11 @@ async function generateSampleData() {
                 const banked = Math.round((Math.random() * 15) * 100) / 100;
                 const km = Math.round(100 + Math.random() * 400);
 
+                // Generate a custom ID
+                const customId = generateId();
+
                 const txn = {
-                    id: generateId(),
+                    id: customId,  // Store custom ID in the data
                     date: dateStr,
                     route: route,
                     customer: customer,
@@ -1089,6 +1117,7 @@ async function generateSampleData() {
                     chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() * 3)] : 'pending',
                     createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2, '0') + ':00:00').toISOString()
                 };
+
                 await db.collection('transactions').add(txn);
                 txnCount++;
             }
@@ -1113,7 +1142,7 @@ async function generateSampleData() {
 }
 
 // ================================================================
-// DOMContentLoaded - Setup event listeners
+// DOMContentLoaded - All Event Listeners
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -1184,6 +1213,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             try {
                 if (editId) {
+                    // Update existing transaction
                     await db.collection('transactions').doc(editId).update(data);
                     showToast('Transaction updated successfully!');
                     const updateBtn = $('txnUpdateBtn');
@@ -1197,7 +1227,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (saveBtn) saveBtn.textContent = 'Save';
                     if (formTitle) formTitle.textContent = 'Add Transaction';
                 } else {
-                    data.id = generateId();
+                    // Create new transaction
+                    const customId = generateId();
+                    data.id = customId;
                     data.createdAt = new Date().toISOString();
                     await db.collection('transactions').add(data);
                     showToast('Transaction saved successfully!');
@@ -1210,6 +1242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 initDashboard();
             } catch (err) {
                 showToast('Error: ' + err.message, 'danger');
+                console.error('Transaction error:', err);
             }
         });
     }
@@ -1285,7 +1318,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (txnExportExcel) {
         txnExportExcel.addEventListener('click', () => {
             const data = state.transactions.map(t => ({
-                ID: t.id,
+                ID: t.customId || t.id,
                 Date: t.date,
                 Route: t.route,
                 Customer: t.customer,
@@ -1317,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Credit', 'Banked'];
             const rows = state.transactions.slice(0, 30).map(t => [
-                t.id || '', t.date || '', t.route || '', t.customer || '',
+                t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
                 (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2),
                 (t.credit || 0).toFixed(2), (t.banked || 0).toFixed(2)
             ]);
@@ -1986,7 +2019,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized');
+console.log('🚀 JDMS v2.0 initialized (FIXED)');
 console.log('📦 Jayasinghe Distributors Management System');
 console.log('🔷 Blue & Gold Theme');
 console.log('📊 Firebase + Chart.js + SheetJS');
