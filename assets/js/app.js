@@ -1,5 +1,5 @@
 // ================================================================
-// assets/js/app.js - Main Application Logic (FULLY FIXED)
+// assets/js/app.js - Main Application Logic
 // ================================================================
 
 // ================================================================
@@ -78,7 +78,8 @@ function showToast(message, type = 'success') {
     el.className = 'toast align-items-center text-white border-0 show';
     el.style.background = bg;
     el.setAttribute('role', 'alert');
-    el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    el.innerHTML =
+        `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
     container.appendChild(el);
     setTimeout(() => { el.classList.remove('show');
         setTimeout(() => el.remove(), 300); }, 4000);
@@ -111,23 +112,49 @@ function updateLastUpdated() {
 }
 
 // ================================================================
-// LOGOUT FUNCTION
+// LOGOUT FUNCTION - FIXED
 // ================================================================
 async function performLogout() {
     const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
     if (!ok) return;
     try {
+        // Sign out from Firebase
         await auth.signOut();
         showToast('Logged out successfully');
+
+        // Clear state
         state.currentUser = null;
         state.userRole = 'viewer';
+        state.transactions = [];
+        state.customers = [];
+        state.routes = [];
+        state.cheques = [];
+        state.users = [];
+
+        // Reset UI - show login page, hide main app
+        const loginPage = $('loginPage');
+        const mainApp = $('mainApp');
+        if (loginPage) loginPage.style.display = 'flex';
+        if (mainApp) mainApp.style.display = 'none';
+
+        // Clear any user data from UI
+        const avatar = $('userAvatar');
+        if (avatar) avatar.textContent = 'U';
+        const displayNameEl = $('userDisplayName');
+        if (displayNameEl) displayNameEl.textContent = 'User';
+        const emailDisplay = $('userEmailDisplay');
+        if (emailDisplay) emailDisplay.textContent = 'user@example.com';
+
+        // Refresh the page to clean state
+        // window.location.reload();
     } catch (err) {
         showToast('Error during logout: ' + err.message, 'danger');
+        console.error('Logout error:', err);
     }
 }
 
 // ================================================================
-// AUTH
+// AUTH - No Demo Login
 // ================================================================
 function checkAuth() {
     auth.onAuthStateChanged(async user => {
@@ -138,10 +165,12 @@ function checkAuth() {
                 if (doc.exists) {
                     state.userRole = doc.data().role || 'viewer';
                 } else {
+                    // Create user document if it doesn't exist
                     await db.collection('users').doc(user.uid).set({
                         email: user.email,
                         role: 'admin',
-                        created: new Date().toISOString()
+                        created: new Date().toISOString(),
+                        lastLogin: new Date().toISOString()
                     });
                     state.userRole = 'admin';
                 }
@@ -149,9 +178,12 @@ function checkAuth() {
                 console.warn('Error fetching user role:', e);
                 state.userRole = 'viewer';
             }
+
+            // Update user info in UI
             const email = user.email || 'U';
             const displayName = email.split('@')[0] || 'User';
-            
+
+            // Update topbar
             const avatar = $('userAvatar');
             const displayNameEl = $('userDisplayName');
             const emailDisplay = $('userEmailDisplay');
@@ -160,19 +192,32 @@ function checkAuth() {
             if (displayNameEl) displayNameEl.textContent = displayName;
             if (emailDisplay) emailDisplay.textContent = email;
             if (roleBadge) roleBadge.textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
-            
+
+            // Update profile page
+            updateProfilePage(user, displayName);
+
+            // Show main app
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'none';
             if (mainApp) mainApp.style.display = 'block';
-            
+
             await loadAllData();
             applyRoleRestrictions();
             initDashboard();
             updateChequeBadge();
             updateTopbarStats();
             updateLastUpdated();
+
+            // Update last login in Firestore
+            try {
+                await db.collection('users').doc(user.uid).update({
+                    lastLogin: new Date().toISOString()
+                });
+            } catch (e) { /* ignore */ }
+
         } else {
+            // No user - show login page
             const loginPage = $('loginPage');
             const mainApp = $('mainApp');
             if (loginPage) loginPage.style.display = 'flex';
@@ -182,40 +227,103 @@ function checkAuth() {
 }
 
 // ================================================================
-// DEMO LOGIN
+// PROFILE PAGE
 // ================================================================
-async function demoLogin() {
+function updateProfilePage(user, displayName) {
+    if (!user) return;
+
+    // Avatar
+    const avatar = $('profileAvatar');
+    if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
+
+    // Display name
+    const displayNameEl = $('profileDisplayName');
+    if (displayNameEl) displayNameEl.textContent = displayName;
+
+    // Email
+    const emailEls = ['profileEmail', 'profileEmail2'];
+    emailEls.forEach(id => {
+        const el = $(id);
+        if (el) el.textContent = user.email || '-';
+    });
+
+    // Role
+    const roleEls = ['profileRoleBadge', 'profileRole2'];
+    roleEls.forEach(id => {
+        const el = $(id);
+        if (el) {
+            const role = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
+            if (id === 'profileRoleBadge') {
+                el.textContent = role;
+            } else {
+                el.textContent = role;
+            }
+        }
+    });
+
+    // User ID
+    const userIdEl = $('profileUserId');
+    if (userIdEl) userIdEl.textContent = user.uid || '-';
+
+    // Created date - we'll try to get this from Firestore
+    db.collection('users').doc(user.uid).get().then(doc => {
+        if (doc.exists) {
+            const data = doc.data();
+            const createdEl = $('profileCreated');
+            if (createdEl) createdEl.textContent = data.created ? formatDate(data.created) : '-';
+
+            const lastLoginEl = $('profileLastLogin');
+            if (lastLoginEl) lastLoginEl.textContent = data.lastLogin ? new Date(data.lastLogin).toLocaleString() : '-';
+        }
+    }).catch(() => { /* ignore */ });
+
+    // Stats
+    const totalTxnsEl = $('profileTotalTxns');
+    if (totalTxnsEl) totalTxnsEl.textContent = state.transactions.length;
+
+    const totalCustomersEl = $('profileTotalCustomers');
+    if (totalCustomersEl) totalCustomersEl.textContent = state.customers.length;
+
+    const totalChequesEl = $('profileTotalCheques');
+    if (totalChequesEl) totalChequesEl.textContent = state.cheques.length;
+}
+
+// ================================================================
+// CHANGE PASSWORD
+// ================================================================
+async function changePassword(currentPassword, newPassword) {
     try {
-        state.currentUser = { uid: 'demo-user', email: 'demo@jdms.com' };
-        state.userRole = 'admin';
-        
-        const avatar = $('userAvatar');
-        const displayNameEl = $('userDisplayName');
-        const emailDisplay = $('userEmailDisplay');
-        const roleBadge = $('userRoleBadge');
-        if (avatar) avatar.textContent = 'D';
-        if (displayNameEl) displayNameEl.textContent = 'Demo';
-        if (emailDisplay) emailDisplay.textContent = 'demo@jdms.com';
-        if (roleBadge) roleBadge.textContent = 'Admin';
-        
-        const loginPage = $('loginPage');
-        const mainApp = $('mainApp');
-        if (loginPage) loginPage.style.display = 'none';
-        if (mainApp) mainApp.style.display = 'block';
-        
-        await loadAllData();
-        applyRoleRestrictions();
-        initDashboard();
-        updateChequeBadge();
-        updateTopbarStats();
-        updateLastUpdated();
-        showToast('Demo mode: Logged in as Admin', 'info');
-    } catch (e) {
-        console.error('Demo login error:', e);
-        showToast('Error loading demo data: ' + e.message, 'danger');
+        const user = auth.currentUser;
+        if (!user) {
+            throw new Error('No user logged in');
+        }
+
+        // Re-authenticate user
+        const credential = firebase.auth.EmailAuthProvider.credential(
+            user.email,
+            currentPassword
+        );
+        await user.reauthenticateWithCredential(credential);
+
+        // Update password
+        await user.updatePassword(newPassword);
+
+        showToast('Password changed successfully!', 'success');
+        return true;
+    } catch (err) {
+        let message = err.message;
+        if (err.code === 'auth/wrong-password') {
+            message = 'Current password is incorrect';
+        } else if (err.code === 'auth/requires-recent-login') {
+            message = 'Please login again before changing password';
+        }
+        throw new Error(message);
     }
 }
 
+// ================================================================
+// UPDATE FUNCTIONS
+// ================================================================
 function updateChequeBadge() {
     const pending = state.cheques.filter(c => c.status === 'pending').length;
     const badge = $('cheqBadge');
@@ -237,7 +345,7 @@ function updateTopbarStats() {
 }
 
 // ================================================================
-// LOAD DATA - FIXED: Store both Firestore doc ID and custom ID
+// LOAD DATA
 // ================================================================
 async function loadAllData() {
     try {
@@ -246,9 +354,9 @@ async function loadAllData() {
             const data = d.data();
             return {
                 ...data,
-                docId: d.id,           // Firestore document ID
-                customId: data.id || null, // Custom ID from the data (e.g., TXN-...)
-                id: d.id               // For backward compatibility
+                docId: d.id,
+                customId: data.id || null,
+                id: d.id
             };
         });
 
@@ -282,12 +390,11 @@ async function loadAllData() {
             if (dateFormat) dateFormat.value = s.dateFormat || 'DD/MM/YYYY';
         }
 
-        // FIXED: Store both docId and customId for cheques
         state.cheques = state.transactions
             .filter(t => t.cheque && parseFloat(t.cheque) > 0)
             .map(t => ({
-                docId: t.docId,           // Firestore document ID (use this for updates!)
-                customId: t.customId,     // Custom ID (for display)
+                docId: t.docId,
+                customId: t.customId,
                 date: t.date,
                 route: t.route,
                 customer: t.customer || 'N/A',
@@ -297,12 +404,16 @@ async function loadAllData() {
                 chequeDate: t.chequeDate || t.date,
                 status: t.chequeStatus || 'pending',
                 transactionId: t.docId,
-                // For backward compatibility
                 id: t.docId
             }));
 
         renderAll();
         updateTopbarStats();
+
+        // Update profile stats if on profile page
+        if (state.currentUser) {
+            updateProfilePage(state.currentUser, state.currentUser.email.split('@')[0] || 'User');
+        }
 
     } catch (e) {
         console.error('Load error:', e);
@@ -382,8 +493,10 @@ function renderDashboardStats() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const monthTxns = state.transactions.filter(t => t.date >= monthStart);
-    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0), 0);
-    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
+    const monthlyIncome = monthTxns.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (
+        parseFloat(t.credit) || 0), 0);
+    const monthlyExpenses = monthTxns.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0),
+        0);
     const profit = monthlyIncome - monthlyExpenses;
 
     const dashTodayCash = $('dashTodayCash');
@@ -394,7 +507,7 @@ function renderDashboardStats() {
     const dashMonthlyExpenses = $('dashMonthlyExpenses');
     const dashProfit = $('dashProfit');
     const dashBanked = $('dashBanked');
-    
+
     if (dashTodayCash) dashTodayCash.textContent = formatCurrency(cashToday);
     if (dashTodayCheques) dashTodayCheques.textContent = formatCurrency(chequeToday);
     if (dashPendingCheques) dashPendingCheques.textContent = pendingCheques;
@@ -415,7 +528,8 @@ function renderRecentTransactions() {
     if (!container) return;
     const recent = state.transactions.slice(0, 5);
     if (!recent.length) {
-        container.innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>`;
+        container.innerHTML =
+            `<div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>`;
         return;
     }
     container.innerHTML = recent.map(t => `
@@ -497,7 +611,8 @@ function renderTransactions() {
     if (totalEl) totalEl.textContent = 'Total: ' + formatCurrency(totalAmount);
 
     if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
+        tbody.innerHTML =
+            `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
@@ -576,7 +691,7 @@ window.editTransaction = async function(docId) {
     const txnDeleteBtn = $('txnDeleteBtn');
     const txnSaveBtn = $('txnSaveBtn');
     const txnFormTitle = $('txnFormTitle');
-    
+
     if (txnDate) txnDate.value = txn.date || '';
     if (txnRoute) txnRoute.value = txn.route || '';
     if (txnDeliveryDate) txnDeliveryDate.value = txn.deliveryDate || '';
@@ -692,7 +807,7 @@ window.deleteCustomer = async function(docId) {
 };
 
 // ================================================================
-// CHEQUES - FIXED: Use docId for updates
+// CHEQUES
 // ================================================================
 function renderCheques() {
     const tbody = $('cheqTableBody');
@@ -720,7 +835,7 @@ function renderCheques() {
     const returnedEl = $('cheqReturned');
     const depositedEl = $('cheqDeposited');
     const countEl = $('cheqCount');
-    
+
     if (pendingEl) pendingEl.textContent = state.cheques.filter(c => c.status === 'pending').length;
     if (clearedEl) clearedEl.textContent = state.cheques.filter(c => c.status === 'cleared').length;
     if (returnedEl) returnedEl.textContent = state.cheques.filter(c => c.status === 'returned').length;
@@ -754,7 +869,6 @@ function renderCheques() {
         `).join('');
 }
 
-// FIXED: Use docId (Firestore document ID) for update
 window.updateChequeStatus = async function(docId, newStatus) {
     if (!docId) {
         showToast('Invalid cheque ID', 'danger');
@@ -970,6 +1084,7 @@ function navigateTo(page) {
         cheques: 'Cheque Management',
         routes: 'Routes',
         reports: 'Reports',
+        profile: 'Profile',
         users: 'Users',
         backup: 'Backup',
         settings: 'Settings',
@@ -983,6 +1098,9 @@ function navigateTo(page) {
     if (page === 'dashboard') initDashboard();
     if (page === 'transactions') renderTransactions();
     if (page === 'cheques') renderCheques();
+    if (page === 'profile' && state.currentUser) {
+        updateProfilePage(state.currentUser, state.currentUser.email.split('@')[0] || 'User');
+    }
     if (page === 'reports') {
         const reportMonth = $('reportMonth');
         const reportYear = $('reportYear');
@@ -1015,7 +1133,7 @@ function applyRoleRestrictions() {
 }
 
 // ================================================================
-// SAMPLE DATA GENERATOR - FIXED
+// SAMPLE DATA GENERATOR
 // ================================================================
 async function generateSampleData() {
     const btn = $('generateSampleDataBtn');
@@ -1049,7 +1167,8 @@ async function generateSampleData() {
             if (!state.customers.some(c => c.name === cust)) {
                 await db.collection('customers').add({
                     name: cust,
-                    phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
+                    phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString()
+                        .padStart(6, '0'),
                     email: cust.toLowerCase().replace(/\s/g, '') + '@gmail.com',
                     address: 'Colombo, Sri Lanka',
                     creditLimit: Math.round((Math.random() * 100 + 10) * 100) / 100,
@@ -1063,8 +1182,6 @@ async function generateSampleData() {
 
         let txnCount = 0;
         const today = new Date();
-
-        // Ensure we have at least some sample data even if there's no data yet
         const routes = sampleRoutes;
         const customers = sampleCustomers;
 
@@ -1083,18 +1200,18 @@ async function generateSampleData() {
                 const hasCheque = Math.random() > 0.6;
                 const cheque = hasCheque ? Math.round((Math.random() * 30 + 5) * 100) / 100 : 0;
                 const chequeNo = hasCheque ? sampleChequeNos[Math.floor(Math.random() * sampleChequeNos.length)] : null;
-                const bank = hasCheque ? ['BOC', 'CBSL', 'Sampath', 'Commercial', 'HNB'][Math.floor(Math.random() * 5)] : null;
+                const bank = hasCheque ? ['BOC', 'CBSL', 'Sampath', 'Commercial', 'HNB'][Math.floor(Math.random() *
+                    5)] : null;
                 const credit = Math.round((Math.random() * 20) * 100) / 100;
                 const expense = Math.round((Math.random() * 10) * 100) / 100;
                 const petrol = Math.round((Math.random() * 8) * 100) / 100;
                 const banked = Math.round((Math.random() * 15) * 100) / 100;
                 const km = Math.round(100 + Math.random() * 400);
 
-                // Generate a custom ID
                 const customId = generateId();
 
                 const txn = {
-                    id: customId,  // Store custom ID in the data
+                    id: customId,
                     date: dateStr,
                     route: route,
                     customer: customer,
@@ -1107,15 +1224,20 @@ async function generateSampleData() {
                     credit: credit,
                     advance: 0,
                     expense: expense,
-                    expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math.random() * 4)] : null,
+                    expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math
+                    .random() * 4)] : null,
                     petrol: petrol,
                     km: km.toString(),
                     banked: banked,
                     primary: customer.split(' ')[0],
                     driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
-                    notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
-                    chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() * 3)] : 'pending',
-                    createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2, '0') + ':00:00').toISOString()
+                    notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy',
+                        'Delay due to traffic'
+                    ][Math.floor(Math.random() * 4)] : null,
+                    chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() *
+                    3)] : 'pending',
+                    createdAt: new Date(dateStr + 'T' + (6 + Math.floor(Math.random() * 8)).toString().padStart(2,
+                        '0') + ':00:00').toISOString()
                 };
 
                 await db.collection('transactions').add(txn);
@@ -1145,7 +1267,7 @@ async function generateSampleData() {
 // DOMContentLoaded - All Event Listeners
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    
+
     // Set today's date
     const txnDate = $('txnDate');
     if (txnDate) txnDate.value = getToday();
@@ -1197,12 +1319,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- DEMO LOGIN BUTTON ---
-    const demoLoginBtn = $('demoLoginBtn');
-    if (demoLoginBtn) {
-        demoLoginBtn.addEventListener('click', demoLogin);
-    }
-
     // --- TRANSACTION FORM ---
     const transactionForm = $('transactionForm');
     if (transactionForm) {
@@ -1213,7 +1329,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             try {
                 if (editId) {
-                    // Update existing transaction
                     await db.collection('transactions').doc(editId).update(data);
                     showToast('Transaction updated successfully!');
                     const updateBtn = $('txnUpdateBtn');
@@ -1227,7 +1342,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (saveBtn) saveBtn.textContent = 'Save';
                     if (formTitle) formTitle.textContent = 'Add Transaction';
                 } else {
-                    // Create new transaction
                     const customId = generateId();
                     data.id = customId;
                     data.createdAt = new Date().toISOString();
@@ -1492,7 +1606,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (editId) {
                     const updates = { role, updatedAt: new Date().toISOString() };
                     if (password && password.length >= 6) {
-                        showToast('Password update requires re-authentication. Use Firebase Console.', 'warning');
+                        showToast('Password update requires re-authentication. Use Firebase Console.',
+                        'warning');
                     }
                     await db.collection('users').doc(editId).update(updates);
                     showToast('User updated!');
@@ -1567,7 +1682,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportYear) reportYear.value = new Date().getFullYear();
             if (reportRoute) reportRoute.value = '';
             if (reportResult) {
-                reportResult.innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
+                reportResult.innerHTML =
+                    `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
             }
             showToast('Filters cleared', 'info');
         });
@@ -1633,7 +1749,8 @@ document.addEventListener('DOMContentLoaded', function() {
             rows.forEach(row => {
                 const cells = qsa('td', row);
                 if (cells.length >= 2) {
-                    data.push({ [headers[0]]: cells[0].textContent.trim(), [headers[1]]: cells[1].textContent.trim() });
+                    data.push({ [headers[0]]: cells[0].textContent.trim(), [headers[1]]: cells[1]
+                            .textContent.trim() });
                 }
             });
             const ws = XLSX.utils.json_to_sheet(data);
@@ -1675,7 +1792,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast('Backup exported successfully!');
                 const history = $('backupHistory');
                 if (history) {
-                    history.innerHTML = `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` + history.innerHTML;
+                    history.innerHTML =
+                        `<div class="py-2 border-bottom" style="border-color:var(--border);">✅ Backup at ${new Date().toLocaleString()} (${state.transactions.length} txns)</div>` +
+                        history.innerHTML;
                 }
             } catch (err) {
                 showToast('Error: ' + err.message, 'danger');
@@ -1687,7 +1806,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (backupRestore) {
         backupRestore.addEventListener('click', async () => {
             const fileInput = $('backupFileInput');
-            if (!fileInput || !fileInput.files.length) return showToast('Select a JSON backup file', 'warning');
+            if (!fileInput || !fileInput.files.length) return showToast('Select a JSON backup file',
+            'warning');
             const file = fileInput.files[0];
             try {
                 const text = await file.text();
@@ -1695,7 +1815,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!data.transactions || !data.customers || !data.routes) {
                     return showToast('Invalid backup file format', 'danger');
                 }
-                const ok = await showConfirm('Restore Backup', 'This will overwrite all current data. Are you sure?');
+                const ok = await showConfirm('Restore Backup',
+                    'This will overwrite all current data. Are you sure?');
                 if (!ok) return;
 
                 const batch = db.batch();
@@ -1860,7 +1981,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSampleDataBtn = $('clearSampleDataBtn');
     if (clearSampleDataBtn) {
         clearSampleDataBtn.addEventListener('click', async () => {
-            const ok = await showConfirm('Clear All Data', 'This will delete ALL transactions, customers, and routes. Are you sure?');
+            const ok = await showConfirm('Clear All Data',
+                'This will delete ALL transactions, customers, and routes. Are you sure?');
             if (!ok) return;
 
             const log = $('sampleDataLog');
@@ -1910,6 +2032,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- CHANGE PASSWORD ---
+    const changePasswordForm = $('changePasswordForm');
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const currentPassword = $('currentPassword') ? $('currentPassword').value : '';
+            const newPassword = $('newPassword') ? $('newPassword').value : '';
+            const confirmPassword = $('confirmPassword') ? $('confirmPassword').value : '';
+            const errorEl = $('passwordChangeError');
+            const successEl = $('passwordChangeSuccess');
+            const statusEl = $('passwordChangeStatus');
+            const btn = $('changePasswordBtn');
+
+            // Clear previous messages
+            if (errorEl) errorEl.textContent = '';
+            if (successEl) {
+                successEl.style.display = 'none';
+                successEl.textContent = '';
+            }
+            if (statusEl) statusEl.textContent = '';
+
+            // Validate
+            if (newPassword.length < 6) {
+                if (errorEl) errorEl.textContent = 'New password must be at least 6 characters';
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                if (errorEl) errorEl.textContent = 'Passwords do not match';
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading-spinner"></span> Changing...';
+            }
+            if (statusEl) statusEl.textContent = '⏳ Changing password...';
+
+            try {
+                await changePassword(currentPassword, newPassword);
+                if (statusEl) statusEl.textContent = '';
+                if (successEl) {
+                    successEl.textContent = '✅ Password changed successfully!';
+                    successEl.style.display = 'block';
+                }
+                // Clear fields
+                const cp = $('currentPassword');
+                const np = $('newPassword');
+                const cf = $('confirmPassword');
+                if (cp) cp.value = '';
+                if (np) np.value = '';
+                if (cf) cf.value = '';
+            } catch (err) {
+                if (errorEl) errorEl.textContent = err.message;
+                if (statusEl) statusEl.textContent = '';
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Change Password';
+                }
+            }
+        });
+    }
+
     // --- SIDEBAR NAVIGATION ---
     qsa('.sidebar-nav .nav-item[data-page]').forEach(el => {
         el.addEventListener('click', () => navigateTo(el.dataset.page));
@@ -1920,16 +2106,18 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebarToggle.addEventListener('click', () => {
             const sidebar = $('sidebar');
             const overlay = $('sidebarOverlay');
-            if (sidebar) sidebar.classList.contains('open') ? closeSidebar() : (sidebar.classList.add('open'), overlay?.classList.add('open'));
+            if (sidebar) sidebar.classList.contains('open') ? closeSidebar() : (sidebar.classList.add(
+                'open'), overlay?.classList.add('open'));
         });
     }
 
     const sidebarOverlay = $('sidebarOverlay');
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
-    // --- LOGOUT ---
+    // --- LOGOUT - All triggers ---
     const logoutBtn = $('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', performLogout);
+
     const topbarLogoutBtn = $('topbarLogoutBtn');
     if (topbarLogoutBtn) {
         topbarLogoutBtn.addEventListener('click', (e) => {
@@ -1937,6 +2125,7 @@ document.addEventListener('DOMContentLoaded', function() {
             performLogout();
         });
     }
+
     const topbarLogoutBtnAlt = $('topbarLogoutBtnAlt');
     if (topbarLogoutBtnAlt) topbarLogoutBtnAlt.addEventListener('click', performLogout);
 
@@ -1945,7 +2134,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (userProfileBtn) {
         userProfileBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            showToast('Profile page coming soon!', 'info');
+            navigateTo('profile');
+            const dropdown = bootstrap.Dropdown.getInstance($('userDropdownToggle'));
+            if (dropdown) dropdown.hide();
         });
     }
 
@@ -2019,8 +2210,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized (FIXED)');
+console.log('🚀 JDMS v2.0 initialized (Demo Removed, Logout Fixed, Profile Added)');
 console.log('📦 Jayasinghe Distributors Management System');
 console.log('🔷 Blue & Gold Theme');
-console.log('📊 Firebase + Chart.js + SheetJS');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
