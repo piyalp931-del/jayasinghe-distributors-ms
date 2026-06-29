@@ -1,5 +1,5 @@
 // ================================================================
-// assets/js/app.js - Main Application Logic
+// assets/js/app.js - Main Application Logic (FULL COMPLETE)
 // ================================================================
 
 // ================================================================
@@ -177,11 +177,9 @@ function checkAuth() {
             const avatar = $('userAvatar');
             const displayNameEl = $('userDisplayName');
             const emailDisplay = $('userEmailDisplay');
-            const roleBadge = $('userRoleBadge');
             if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
             if (displayNameEl) displayNameEl.textContent = displayName;
             if (emailDisplay) emailDisplay.textContent = email;
-            if (roleBadge) roleBadge.textContent = state.userRole.charAt(0).toUpperCase() + state.userRole.slice(1);
 
             updateProfilePage(user, displayName);
 
@@ -403,17 +401,19 @@ function renderAll() {
     renderUsers();
     renderDashboardStats();
     populateSelects();
-    populateReportRouteSelect(); // Populate report dropdown dynamically
+    populateCustomerRouteSelects();
+    populateReportRouteSelect();
     updateChequeBadge();
     updateTopbarStats();
     updateLastUpdated();
+    checkChequeNotifications();
+    loadRouteExpenses();
 }
 
 // ================================================================
 // POPULATE SELECTS
 // ================================================================
 function populateSelects() {
-    // Only populate transaction route dropdown here
     const routeSelects = ['txnRoute'];
     routeSelects.forEach(id => {
         const sel = $(id);
@@ -426,7 +426,9 @@ function populateSelects() {
             opt.textContent = r.name;
             sel.appendChild(opt);
         });
-        if (current) sel.value = current;
+        if (current && Array.from(sel.options).some(o => o.value === current)) {
+            sel.value = current;
+        }
     });
 
     const custSel = $('txnCustomer');
@@ -439,42 +441,50 @@ function populateSelects() {
             opt.textContent = c.name + (c.phone ? ' (' + c.phone + ')' : '');
             custSel.appendChild(opt);
         });
-        if (current) custSel.value = current;
+        if (current && Array.from(custSel.options).some(o => o.value === current)) {
+            custSel.value = current;
+        }
     }
 }
 
-// ================================================================
-// POPULATE REPORT ROUTE/CUSTOMER DROPDOWN (ALWAYS COMBINED)
-// ================================================================
+function populateCustomerRouteSelects() {
+    const selects = ['custRoute', 'custRouteFilter', 'txnRouteFilter', 'routeExpenseRoute'];
+    selects.forEach(id => {
+        const sel = $(id);
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">Select Route</option>';
+        state.routes.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.name;
+            opt.textContent = r.name;
+            sel.appendChild(opt);
+        });
+        if (current && Array.from(sel.options).some(o => o.value === current)) {
+            sel.value = current;
+        }
+    });
+}
+
 function populateReportRouteSelect() {
     const reportRouteEl = $('reportRoute');
     if (!reportRouteEl) return;
-
     const currentVal = reportRouteEl.value;
-
-    // Clear existing options
     reportRouteEl.innerHTML = '<option value="">Select</option>';
-
-    // Add Routes with prefix
     state.routes.forEach(r => {
         const opt = document.createElement('option');
-        opt.value = 'route:' + r.name; // Prefix to identify type
+        opt.value = 'route:' + r.name;
         opt.textContent = '🚏 ' + r.name;
         reportRouteEl.appendChild(opt);
     });
-
-    // Add Customers with prefix
     state.customers.forEach(c => {
         const opt = document.createElement('option');
         opt.value = 'customer:' + c.name;
         opt.textContent = '👤 ' + c.name + (c.phone ? ' (' + c.phone + ')' : '');
         reportRouteEl.appendChild(opt);
     });
-
-    // Restore previously selected value if it exists
-    if (currentVal) {
-        const exists = Array.from(reportRouteEl.options).some(opt => opt.value === currentVal);
-        if (exists) reportRouteEl.value = currentVal;
+    if (currentVal && Array.from(reportRouteEl.options).some(o => o.value === currentVal)) {
+        reportRouteEl.value = currentVal;
     }
 }
 
@@ -592,14 +602,20 @@ function renderDashboardChart() {
 }
 
 // ================================================================
-// TRANSACTIONS CRUD
+// TRANSACTIONS CRUD - WITH TABS & ROUTE FILTER
 // ================================================================
+let currentTxnTab = 'all';
+
 function renderTransactions() {
     const tbody = $('txnTableBody');
     if (!tbody) return;
     const search = $('txnSearch');
     const searchVal = search ? search.value.toLowerCase() : '';
+    const routeFilter = $('txnRouteFilter');
+    const routeVal = routeFilter ? routeFilter.value : '';
+
     let filtered = state.transactions;
+
     if (searchVal) {
         filtered = filtered.filter(t =>
             (t.route || '').toLowerCase().includes(searchVal) ||
@@ -608,41 +624,74 @@ function renderTransactions() {
             (t.id || '').toLowerCase().includes(searchVal)
         );
     }
+
+    if (routeVal) {
+        filtered = filtered.filter(t => t.route === routeVal);
+    }
+
+    if (currentTxnTab === 'cash') {
+        filtered = filtered.filter(t => parseFloat(t.cash) > 0);
+    } else if (currentTxnTab === 'cheque') {
+        filtered = filtered.filter(t => parseFloat(t.cheque) > 0);
+    } else if (currentTxnTab === 'transfer') {
+        filtered = filtered.filter(t => parseFloat(t.banked) > 0 && parseFloat(t.cash) === 0 && parseFloat(t.cheque) === 0);
+    } else if (currentTxnTab === 'expense') {
+        filtered = filtered.filter(t => parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0);
+    }
+
     const countEl = $('txnCount');
     if (countEl) countEl.textContent = filtered.length + ' transactions';
 
-    const totalAmount = filtered.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0), 0);
+    const totalAmount = filtered.reduce((s, t) => s + (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0), 0);
     const totalEl = $('txnTotalAmount');
     if (totalEl) totalEl.textContent = 'Total: ' + formatCurrency(totalAmount);
 
     if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = filtered.slice(0, 50).map(t => `
+    tbody.innerHTML = filtered.slice(0, 50).map(t => {
+        let type = 'Income';
+        let typeBadge = 'success';
+        if (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0) {
+            type = 'Expense';
+            typeBadge = 'danger';
+        } else if (parseFloat(t.banked) > 0 && parseFloat(t.cash) === 0 && parseFloat(t.cheque) === 0) {
+            type = 'Transfer';
+            typeBadge = 'info';
+        } else if (parseFloat(t.cheque) > 0) {
+            type = 'Cheque';
+            typeBadge = 'warning';
+        } else if (parseFloat(t.cash) > 0) {
+            type = 'Cash';
+            typeBadge = 'primary';
+        }
+        return `
             <tr>
                 <td><code style="font-size:12px;">${t.customId || t.id || 'N/A'}</code></td>
                 <td>${formatDate(t.date)}</td>
+                <td><span class="badge bg-${typeBadge}">${type}</span></td>
                 <td>${t.route || '-'}</td>
                 <td>${t.customer || '-'}</td>
                 <td>${formatCurrency(t.cash)}</td>
                 <td>${formatCurrency(t.cheque)}</td>
                 <td>${formatCurrency(t.credit)}</td>
                 <td>${formatCurrency(t.banked)}</td>
+                <td>${formatCurrency(t.expense)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
+        `;
+    }).join('');
 }
 
 function getTransactionFormData() {
     return {
         date: $('txnDate') ? $('txnDate').value : '',
         route: $('txnRoute') ? $('txnRoute').value : '',
-        deliveryDate: $('txnDeliveryDate') ? $('txnDeliveryDate').value || null : null,
         customer: $('txnCustomer') ? $('txnCustomer').value || null : null,
         cash: parseFloat($('txnCash') ? $('txnCash').value : 0) || 0,
         cheque: parseFloat($('txnCheque') ? $('txnCheque').value : 0) || 0,
@@ -657,8 +706,10 @@ function getTransactionFormData() {
         petrol: parseFloat($('txnPetrol') ? $('txnPetrol').value : 0) || 0,
         km: $('txnKM') ? $('txnKM').value || null : null,
         banked: parseFloat($('txnBanked') ? $('txnBanked').value : 0) || 0,
-        primary: $('txnPrimary') ? $('txnPrimary').value || null : null,
+        transferBank: $('txnTransferBank') ? $('txnTransferBank').value || null : null,
+        transferRef: $('txnTransferRef') ? $('txnTransferRef').value || null : null,
         driver: $('txnDriver') ? $('txnDriver').value || null : null,
+        primary: $('txnPrimary') ? $('txnPrimary').value || null : null,
         notes: $('txnNotes') ? $('txnNotes').value || null : null,
         chequeStatus: 'pending',
     };
@@ -672,7 +723,6 @@ window.editTransaction = async function(docId) {
     }
     const txnDate = $('txnDate');
     const txnRoute = $('txnRoute');
-    const txnDeliveryDate = $('txnDeliveryDate');
     const txnCustomer = $('txnCustomer');
     const txnCash = $('txnCash');
     const txnCheque = $('txnCheque');
@@ -687,18 +737,20 @@ window.editTransaction = async function(docId) {
     const txnPetrol = $('txnPetrol');
     const txnKM = $('txnKM');
     const txnBanked = $('txnBanked');
-    const txnPrimary = $('txnPrimary');
+    const txnTransferBank = $('txnTransferBank');
+    const txnTransferRef = $('txnTransferRef');
     const txnDriver = $('txnDriver');
+    const txnPrimary = $('txnPrimary');
     const txnNotes = $('txnNotes');
     const txnEditId = $('txnEditId');
     const txnUpdateBtn = $('txnUpdateBtn');
     const txnDeleteBtn = $('txnDeleteBtn');
     const txnSaveBtn = $('txnSaveBtn');
     const txnFormTitle = $('txnFormTitle');
+    const txnType = $('txnType');
 
     if (txnDate) txnDate.value = txn.date || '';
     if (txnRoute) txnRoute.value = txn.route || '';
-    if (txnDeliveryDate) txnDeliveryDate.value = txn.deliveryDate || '';
     if (txnCustomer) txnCustomer.value = txn.customer || '';
     if (txnCash) txnCash.value = txn.cash || '';
     if (txnCheque) txnCheque.value = txn.cheque || '';
@@ -713,14 +765,29 @@ window.editTransaction = async function(docId) {
     if (txnPetrol) txnPetrol.value = txn.petrol || '';
     if (txnKM) txnKM.value = txn.km || '';
     if (txnBanked) txnBanked.value = txn.banked || '';
-    if (txnPrimary) txnPrimary.value = txn.primary || '';
+    if (txnTransferBank) txnTransferBank.value = txn.transferBank || '';
+    if (txnTransferRef) txnTransferRef.value = txn.transferRef || '';
     if (txnDriver) txnDriver.value = txn.driver || '';
+    if (txnPrimary) txnPrimary.value = txn.primary || '';
     if (txnNotes) txnNotes.value = txn.notes || '';
     if (txnEditId) txnEditId.value = docId;
     if (txnUpdateBtn) txnUpdateBtn.style.display = 'inline-block';
     if (txnDeleteBtn) txnDeleteBtn.style.display = 'inline-block';
     if (txnSaveBtn) txnSaveBtn.textContent = 'Update';
     if (txnFormTitle) txnFormTitle.textContent = 'Edit Transaction';
+
+    // Set type
+    if (txnType) {
+        if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
+            txnType.value = 'expense';
+        } else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
+            txnType.value = 'transfer';
+        } else {
+            txnType.value = 'income';
+        }
+        txnType.dispatchEvent(new Event('change'));
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
@@ -739,13 +806,16 @@ window.deleteTransaction = async function(docId) {
 };
 
 // ================================================================
-// CUSTOMERS CRUD
+// CUSTOMERS CRUD - WITH ROUTE FILTER
 // ================================================================
 function renderCustomers() {
     const tbody = $('custTableBody');
     if (!tbody) return;
     const search = $('custSearch');
     const searchVal = search ? search.value.toLowerCase() : '';
+    const routeFilter = $('custRouteFilter');
+    const routeVal = routeFilter ? routeFilter.value : '';
+
     let filtered = state.customers;
     if (searchVal) {
         filtered = filtered.filter(c =>
@@ -754,33 +824,59 @@ function renderCustomers() {
             (c.email || '').toLowerCase().includes(searchVal)
         );
     }
+    if (routeVal) {
+        filtered = filtered.filter(c => c.route === routeVal);
+    }
+
     const countEl = $('custCount');
     if (countEl) countEl.textContent = filtered.length + ' customers';
 
+    // Calculate customer balance
+    const balances = {};
+    state.transactions.forEach(t => {
+        if (t.customer) {
+            if (!balances[t.customer]) balances[t.customer] = 0;
+            const amount = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0);
+            balances[t.customer] += amount;
+        }
+    });
+
     if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No customers</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No customers</td></tr>`;
         return;
     }
 
     tbody.innerHTML = filtered.map(c => `
             <tr>
                 <td><strong>${c.name}</strong></td>
+                <td><span class="badge bg-info">${c.route || 'N/A'}</span></td>
                 <td>${c.phone || '-'}</td>
                 <td>${c.email || '-'}</td>
                 <td>${formatCurrency(c.creditLimit)}</td>
-                <td>${formatCurrency(c.balance || 0)}</td>
+                <td>${formatCurrency(balances[c.name] || 0)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="editCustomer('${c.docId}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer('${c.docId}')"><i class="bi bi-trash"></i></button>
+                    <button class="btn btn-sm btn-outline-info" onclick="showCustomerTransactions('${c.name}')"><i class="bi bi-receipt"></i></button>
                 </td>
             </tr>
         `).join('');
 }
 
+window.showCustomerTransactions = function(customerName) {
+    navigateTo('transactions');
+    setTimeout(() => {
+        const search = $('txnSearch');
+        if (search) search.value = customerName;
+        renderTransactions();
+    }, 300);
+};
+
 window.editCustomer = function(docId) {
     const c = state.customers.find(c => c.docId === docId);
     if (!c) return;
     const custName = $('custName');
+    const custRoute = $('custRoute');
     const custPhone = $('custPhone');
     const custEmail = $('custEmail');
     const custAddress = $('custAddress');
@@ -788,6 +884,7 @@ window.editCustomer = function(docId) {
     const custEditId = $('custEditId');
     const custDeleteBtn = $('custDeleteBtn');
     if (custName) custName.value = c.name || '';
+    if (custRoute) custRoute.value = c.route || '';
     if (custPhone) custPhone.value = c.phone || '';
     if (custEmail) custEmail.value = c.email || '';
     if (custAddress) custAddress.value = c.address || '';
@@ -890,27 +987,39 @@ window.updateChequeStatus = async function(docId, newStatus) {
 };
 
 // ================================================================
-// ROUTES
+// ROUTES & EXPENSES
 // ================================================================
 function renderRoutes() {
     const tbody = $('routeTableBody');
     if (!tbody) return;
     const countEl = $('routeCount');
     if (countEl) countEl.textContent = state.routes.length + ' routes';
+
     if (!state.routes.length) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">No routes</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No routes</td></tr>`;
         return;
     }
-    tbody.innerHTML = state.routes.map((r, i) => `
+
+    tbody.innerHTML = state.routes.map((r, i) => {
+        const customerCount = state.customers.filter(c => c.route === r.name).length;
+        const expenses = state.transactions.filter(t =>
+            t.route === r.name &&
+            (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
+        );
+        const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
+
+        return `
             <tr>
                 <td>${i+1}</td>
                 <td><strong>${r.name}</strong></td>
+                <td>${customerCount}</td>
+                <td>${formatCurrency(totalExpense)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
-    populateSelects();
+        `;
+    }).join('');
 }
 
 window.deleteRoute = async function(docId) {
@@ -925,6 +1034,72 @@ window.deleteRoute = async function(docId) {
         showToast('Error: ' + err.message, 'danger');
     }
 };
+
+// ================================================================
+// ROUTE EXPENSES MODULE
+// ================================================================
+function loadRouteExpenses() {
+    const routeSelect = $('routeExpenseRoute');
+    const resultDiv = $('routeExpenseResult');
+    if (!routeSelect || !resultDiv) return;
+
+    const routeName = routeSelect.value;
+    if (!routeName) {
+        resultDiv.innerHTML = `<div class="empty-state"><i class="bi bi-receipt"></i><p>Select a route to view expenses</p></div>`;
+        return;
+    }
+
+    const expenses = state.transactions.filter(t =>
+        t.route === routeName &&
+        (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
+    );
+
+    if (!expenses.length) {
+        resultDiv.innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No expenses for this route</p></div>`;
+        return;
+    }
+
+    const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
+
+    let html = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span><strong>${routeName}</strong> - ${expenses.length} expenses</span>
+            <span class="fw-bold text-danger">Total: ${formatCurrency(totalExpense)}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr>
+                    <th>Date</th>
+                    <th>Expense</th>
+                    <th>Petrol</th>
+                    <th>Reason</th>
+                    <th>Driver</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody>
+    `;
+
+    expenses.slice(0, 50).forEach(t => {
+        html += `
+            <tr>
+                <td>${formatDate(t.date)}</td>
+                <td>${formatCurrency(t.expense)}</td>
+                <td>${formatCurrency(t.petrol)}</td>
+                <td>${t.expenseReason || '-'}</td>
+                <td>${t.driver || '-'}</td>
+                <td>${t.notes || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table></div>`;
+    resultDiv.innerHTML = html;
+}
 
 // ================================================================
 // USERS
@@ -984,14 +1159,13 @@ window.deleteUser = async function(docId) {
 };
 
 // ================================================================
-// REPORTS - Updated to handle combined route/customer filter
+// REPORTS
 // ================================================================
 function generateReport(type, month, year, routeCustomerValue, date) {
     const container = $('reportResult');
     if (!container) return;
     let data = [...state.transactions];
 
-    // Apply date/time filters based on report type
     if (type === 'daily') {
         const filterDate = date || getToday();
         data = data.filter(t => t.date === filterDate);
@@ -1005,12 +1179,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         data = data.filter(t => t.date && t.date.startsWith(month));
     } else if (type === 'yearly' && year) {
         data = data.filter(t => t.date && t.date.startsWith(year));
-    } else if (type === 'route') {
-        // If report type is 'route', we still apply the route filter from dropdown if any
-        // but we also need to group by route? Actually we are just filtering.
-        // We'll handle filtering separately.
-    } else if (type === 'customer') {
-        // Same as above
     } else if (type === 'expense') {
         data = data.filter(t => parseFloat(t.expense) > 0);
     } else if (type === 'petrol') {
@@ -1023,11 +1191,10 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         data = data.filter(t => parseFloat(t.cheque) > 0);
     }
 
-    // Apply route/customer filter if a value is selected
     if (routeCustomerValue) {
         const parts = routeCustomerValue.split(':');
         if (parts.length === 2) {
-            const filterType = parts[0]; // 'route' or 'customer'
+            const filterType = parts[0];
             const filterValue = parts[1];
             if (filterType === 'route') {
                 data = data.filter(t => t.route === filterValue);
@@ -1048,20 +1215,13 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     const profit = totalIncome - totalCost;
 
     let filterDesc = '';
-    if (type === 'daily') {
-        filterDesc = date || getToday();
-    } else if (type === 'weekly') {
-        filterDesc = 'Last 7 Days';
-    } else if (type === 'monthly') {
-        filterDesc = month || '';
-    } else if (type === 'yearly') {
-        filterDesc = year || '';
-    } else if (type === 'route' || type === 'customer') {
-        filterDesc = routeCustomerValue ? routeCustomerValue.split(':')[1] : '';
-    } else {
-        filterDesc = '';
-    }
-    // Append route/customer filter info if applied
+    if (type === 'daily') filterDesc = date || getToday();
+    else if (type === 'weekly') filterDesc = 'Last 7 Days';
+    else if (type === 'monthly') filterDesc = month || '';
+    else if (type === 'yearly') filterDesc = year || '';
+    else if (type === 'route' || type === 'customer') filterDesc = routeCustomerValue ? routeCustomerValue.split(':')[1] : '';
+    else filterDesc = '';
+
     if (routeCustomerValue) {
         const label = routeCustomerValue.split(':')[1] || '';
         filterDesc += (filterDesc ? ' - ' : '') + 'Filter: ' + label;
@@ -1124,7 +1284,7 @@ function navigateTo(page) {
         transactions: 'Transactions',
         customers: 'Customers',
         cheques: 'Cheque Management',
-        routes: 'Routes',
+        routes: 'Routes & Expenses',
         reports: 'Reports',
         profile: 'Profile',
         users: 'Users',
@@ -1152,6 +1312,10 @@ function navigateTo(page) {
         if (reportDate) reportDate.value = getToday();
         populateReportRouteSelect();
     }
+    if (page === 'routes') {
+        populateCustomerRouteSelects();
+        loadRouteExpenses();
+    }
 }
 window.navigateTo = navigateTo;
 
@@ -1178,6 +1342,74 @@ function applyRoleRestrictions() {
 }
 
 // ================================================================
+// TRANSACTION TYPE TOGGLE
+// ================================================================
+function setupTransactionTypeToggle() {
+    const typeSelect = $('txnType');
+    if (!typeSelect) return;
+
+    typeSelect.addEventListener('change', function() {
+        const incomeFields = $('incomeFields');
+        const expenseFields = $('expenseFields');
+        const transferFields = $('transferFields');
+
+        if (incomeFields) incomeFields.style.display = 'none';
+        if (expenseFields) expenseFields.style.display = 'none';
+        if (transferFields) transferFields.style.display = 'none';
+
+        if (this.value === 'income') {
+            if (incomeFields) incomeFields.style.display = 'flex';
+        } else if (this.value === 'expense') {
+            if (expenseFields) expenseFields.style.display = 'flex';
+        } else if (this.value === 'transfer') {
+            if (transferFields) transferFields.style.display = 'flex';
+        }
+    });
+}
+
+// ================================================================
+// CHEQUE NOTIFICATIONS
+// ================================================================
+let notifiedCheques = new Set();
+
+function checkChequeNotifications() {
+    const today = new Date();
+    const threeDaysLater = new Date(today);
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+
+    const upcomingCheques = state.cheques.filter(c => {
+        if (c.status !== 'pending') return false;
+        const chqDate = new Date(c.chequeDate);
+        if (isNaN(chqDate)) return false;
+        const diff = (chqDate - today) / (1000 * 60 * 60 * 24);
+        return diff >= 0 && diff <= 3 && !notifiedCheques.has(c.docId + c.chequeNo);
+    });
+
+    upcomingCheques.forEach(c => {
+        const daysLeft = Math.ceil((new Date(c.chequeDate) - today) / (1000 * 60 * 60 * 24));
+        const message = `Cheque ${c.chequeNo} (${c.customer}) due in ${daysLeft} day(s)`;
+
+        showToast(`⏰ ${message}`, 'warning');
+
+        if (Notification.permission === 'granted') {
+            new Notification('JDMS - Cheque Reminder', {
+                body: message,
+                icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+            });
+        }
+
+        notifiedCheques.add(c.docId + c.chequeNo);
+    });
+
+    state.cheques.forEach(c => {
+        const key = c.docId + c.chequeNo;
+        if (notifiedCheques.has(key) && c.status !== 'pending') {
+            notifiedCheques.delete(key);
+        }
+    });
+}
+
+// ================================================================
 // SAMPLE DATA GENERATOR
 // ================================================================
 async function generateSampleData() {
@@ -1191,12 +1423,19 @@ async function generateSampleData() {
     log.innerHTML = '<div class="text-info">⏳ Generating sample data...</div>';
 
     try {
-        const sampleRoutes = ['Colombo North', 'Colombo South', 'Kandy', 'Galle', 'Matara', 'Negombo', 'Kalutara'];
+        const sampleRoutes = ['Keppitipola', 'Colombo North', 'Colombo South', 'Kandy', 'Galle', 'Matara', 'Negombo', 'Kalutara'];
         const sampleCustomers = [
-            'Lanka Traders', 'City Mart', 'Sunshine Stores', 'Green Valley', 'Ocean Enterprises',
-            'Royal Distributors', 'Prime Supplies', 'Lakshmi Stores', 'Ceylon Wholesale', 'Island Traders'
+            'Sunil Stores', 'Sadun Stores', 'Lanka Traders', 'City Mart', 'Sunshine Stores',
+            'Green Valley', 'Ocean Enterprises', 'Royal Distributors', 'Prime Supplies',
+            'Lakshmi Stores', 'Ceylon Wholesale', 'Island Traders'
         ];
         const sampleChequeNos = ['CHQ-001', 'CHQ-002', 'CHQ-003', 'CHQ-004', 'CHQ-005'];
+
+        // Assign customers to routes
+        const customerRouteMap = {};
+        sampleCustomers.forEach((cust, idx) => {
+            customerRouteMap[cust] = sampleRoutes[idx % sampleRoutes.length];
+        });
 
         let routeCount = 0;
         for (const route of sampleRoutes) {
@@ -1212,6 +1451,7 @@ async function generateSampleData() {
             if (!state.customers.some(c => c.name === cust)) {
                 await db.collection('customers').add({
                     name: cust,
+                    route: customerRouteMap[cust],
                     phone: '0' + (70 + Math.floor(Math.random() * 10)) + Math.floor(Math.random() * 1000000).toString().padStart(6, '0'),
                     email: cust.toLowerCase().replace(/\s/g, '') + '@gmail.com',
                     address: 'Colombo, Sri Lanka',
@@ -1271,7 +1511,6 @@ async function generateSampleData() {
                     petrol: petrol,
                     km: km.toString(),
                     banked: banked,
-                    primary: customer.split(' ')[0],
                     driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
                     notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
                     chequeStatus: hasCheque ? ['pending', 'cleared', 'deposited'][Math.floor(Math.random() * 3)] : 'pending',
@@ -1316,11 +1555,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportDate = $('reportDate');
     if (reportDate) reportDate.value = getToday();
 
-    // --- Report type change to toggle date visibility and refresh dropdown ---
+    // --- Report type change ---
     const reportType = $('reportType');
     if (reportType) {
         reportType.addEventListener('change', function() {
-            // Toggle date picker visibility for daily reports
             const dateGroup = document.querySelector('.col-md-2:has(#reportDate)');
             if (dateGroup) {
                 if (this.value === 'daily') {
@@ -1329,17 +1567,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     dateGroup.classList.remove('visible');
                 }
             }
-            // Populate dropdown (always populated with combined list)
             populateReportRouteSelect();
         });
-        // Trigger initial visibility
         if (reportType.value === 'daily') {
             const dateGroup = document.querySelector('.col-md-2:has(#reportDate)');
             if (dateGroup) dateGroup.classList.add('visible');
         }
     }
 
-    // --- LOGIN CLEAR BUTTON ---
+    // --- LOGIN ---
     const loginClearBtn = $('loginClearBtn');
     if (loginClearBtn) {
         loginClearBtn.addEventListener('click', function() {
@@ -1353,7 +1589,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LOGIN FORM ---
     const loginForm = $('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -1475,21 +1710,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    const txnViewReportBtn = $('txnViewReportBtn');
-    if (txnViewReportBtn) {
-        txnViewReportBtn.addEventListener('click', () => {
-            navigateTo('reports');
-            setTimeout(() => {
-                const reportType = $('reportType');
-                const reportMonthEl = $('reportMonth');
-                const reportGenerateBtn = $('reportGenerateBtn');
-                if (reportType) reportType.value = 'monthly';
-                if (reportMonthEl) reportMonthEl.value = new Date().toISOString().slice(0, 7);
-                if (reportGenerateBtn) reportGenerateBtn.click();
-            }, 300);
-        });
-    }
-
     // --- Export Buttons ---
     const txnExportExcel = $('txnExportExcel');
     if (txnExportExcel) {
@@ -1503,6 +1723,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Cheque: t.cheque || 0,
                 Credit: t.credit || 0,
                 Banked: t.banked || 0,
+                Expense: t.expense || 0,
                 Petrol: t.petrol || 0,
                 KM: t.km || '',
                 Notes: t.notes || ''
@@ -1525,11 +1746,12 @@ document.addEventListener('DOMContentLoaded', function() {
             doc.setFontSize(10);
             doc.text('Generated: ' + new Date().toLocaleString(), 14, 28);
 
-            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Credit', 'Banked'];
+            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Credit', 'Banked', 'Expense'];
             const rows = state.transactions.slice(0, 30).map(t => [
                 t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
                 (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2),
-                (t.credit || 0).toFixed(2), (t.banked || 0).toFixed(2)
+                (t.credit || 0).toFixed(2), (t.banked || 0).toFixed(2),
+                (t.expense || 0).toFixed(2)
             ]);
 
             if (doc.autoTable) {
@@ -1557,6 +1779,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const editId = $('custEditId') ? $('custEditId').value : '';
             const data = {
                 name: $('custName') ? $('custName').value.trim() : '',
+                route: $('custRoute') ? $('custRoute').value : '',
                 phone: $('custPhone') ? $('custPhone').value.trim() : '',
                 email: $('custEmail') ? $('custEmail').value.trim() : '',
                 address: $('custAddress') ? $('custAddress').value.trim() : '',
@@ -1612,6 +1835,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Customer Route Filter
+    const custRouteFilter = $('custRouteFilter');
+    if (custRouteFilter) {
+        custRouteFilter.addEventListener('change', renderCustomers);
+    }
+
     // --- ROUTES ---
     const routeForm = $('routeForm');
     if (routeForm) {
@@ -1650,6 +1879,42 @@ document.addEventListener('DOMContentLoaded', function() {
             const routeEditId = $('routeEditId');
             if (routeEditId) routeEditId.value = '';
             showToast('Form cleared', 'info');
+        });
+    }
+
+    // --- ROUTE EXPENSES ---
+    const routeExpenseLoadBtn = $('routeExpenseLoadBtn');
+    if (routeExpenseLoadBtn) {
+        routeExpenseLoadBtn.addEventListener('click', loadRouteExpenses);
+    }
+
+    const routeExpenseRoute = $('routeExpenseRoute');
+    if (routeExpenseRoute) {
+        routeExpenseRoute.addEventListener('change', function() {
+            if (this.value) loadRouteExpenses();
+        });
+    }
+
+    const routeExpenseAddBtn = $('routeExpenseAddBtn');
+    if (routeExpenseAddBtn) {
+        routeExpenseAddBtn.addEventListener('click', function() {
+            const routeSelect = $('routeExpenseRoute');
+            if (!routeSelect || !routeSelect.value) {
+                showToast('Please select a route first', 'warning');
+                return;
+            }
+            navigateTo('transactions');
+            setTimeout(() => {
+                const route = $('txnRoute');
+                const type = $('txnType');
+                if (route) route.value = routeSelect.value;
+                if (type) type.value = 'expense';
+                if (type) type.dispatchEvent(new Event('change'));
+                const expenseField = $('txnExpense');
+                if (expenseField) expenseField.focus();
+                const title = $('txnFormTitle');
+                if (title) title.textContent = 'Add Expense for ' + routeSelect.value;
+            }, 300);
         });
     }
 
@@ -1719,6 +1984,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- TRANSACTION TABS ---
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentTxnTab = this.dataset.tab;
+            renderTransactions();
+        });
+    });
+
+    // Transaction Route Filter
+    const txnRouteFilter = $('txnRouteFilter');
+    if (txnRouteFilter) {
+        txnRouteFilter.addEventListener('change', renderTransactions);
+    }
+
     // --- REPORTS ---
     const reportGenerateBtn = $('reportGenerateBtn');
     if (reportGenerateBtn) {
@@ -1749,7 +2030,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (reportResult) {
                 reportResult.innerHTML = `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>Select criteria and click Generate</p></div>`;
             }
-            // Repopulate the dropdown
             populateReportRouteSelect();
             showToast('Filters cleared', 'info');
         });
@@ -2170,7 +2450,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebarOverlay = $('sidebarOverlay');
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
-    // --- LOGOUT - All triggers ---
+    // --- LOGOUT ---
     const logoutBtn = $('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', performLogout);
 
@@ -2206,6 +2486,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- TRANSACTION TYPE TOGGLE ---
+    setupTransactionTypeToggle();
+
     // --- KEYBOARD SHORTCUTS ---
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 't') {
@@ -2225,40 +2508,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- NOTIFICATIONS ---
-    function checkNotifications() {
-        const today = new Date();
-        const overdue = state.cheques.filter(c => {
-            if (c.status !== 'pending') return false;
-            const chqDate = new Date(c.chequeDate);
-            if (isNaN(chqDate)) return false;
-            const diff = (today - chqDate) / (1000 * 60 * 60 * 24);
-            return diff > 7;
-        });
-
-        if (overdue.length > 0) {
-            const dot = $('notifDot');
-            if (dot) {
-                dot.style.display = 'block';
-                dot.textContent = overdue.length;
-            }
-            if (Notification.permission === 'granted') {
-                new Notification('JDMS - Overdue Cheques', {
-                    body: `${overdue.length} cheque(s) are overdue by more than 7 days.`,
-                    icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
-                });
-            }
-        } else {
-            const dot = $('notifDot');
-            if (dot) dot.style.display = 'none';
-        }
-    }
-
+    // --- CHEQUE NOTIFICATIONS ---
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
-    setInterval(checkNotifications, 300000);
-    setTimeout(checkNotifications, 3000);
+    setInterval(checkChequeNotifications, 300000);
+    setTimeout(checkChequeNotifications, 5000);
 });
 
 // ================================================================
@@ -2266,7 +2521,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized (Route/Customer Filter Fixed)');
+console.log('🚀 JDMS v2.0 initialized (Full Version)');
 console.log('📦 Jayasinghe Distributors Management System');
 console.log('🔷 Blue & Gold Theme');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
+console.log('✅ Features: Customer-Route, Route Expenses, Tabs, Notifications');
