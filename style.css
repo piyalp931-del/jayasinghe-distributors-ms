@@ -830,3 +830,65 @@ a {
         border: 1px solid #ddd !important;
     }
 }
+
+/* ================================================================
+   Additional styles for new features (JDMS v2.0)
+   ================================================================ */
+
+/* Transaction tabs */
+.btn-group .btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.btn-group .btn.active:hover {
+    background: var(--primary-light);
+    color: #fff;
+}
+
+/* Route expense module */
+#routeExpenseResult .table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Customer balance badge */
+.customer-balance {
+    font-weight: 600;
+}
+
+/* Notification toast styling */
+.toast-container .toast {
+    min-width: 300px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Badge for route in customer list */
+.badge.bg-info {
+    background: #0ea5e9 !important;
+    color: #fff;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .table-wrapper .table-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .btn-group {
+        flex-wrap: wrap;
+    }
+    .btn-group .btn {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+}
+
+/* Hover effect for route expense rows */
+#routeExpenseResult .table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="dark"] #routeExpenseResult .table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
