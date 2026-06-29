@@ -44,8 +44,6 @@
             background: var(--primary-light);
             color: #fff;
         }
-
-        /* Payment mode buttons */
         .payment-mode-group .btn {
             border-radius: 8px;
             padding: 8px 16px;
@@ -61,8 +59,6 @@
             background: var(--primary-light);
             color: #fff;
         }
-
-        /* Transaction type buttons */
         .txn-type-group .btn {
             border-radius: 8px;
             padding: 8px 16px;
@@ -78,8 +74,6 @@
             background: var(--accent-light);
             color: var(--primary-dark);
         }
-
-        /* Cheque details section */
         .cheque-details-section {
             background: var(--bg);
             border-radius: 12px;
@@ -90,7 +84,6 @@
         .cheque-details-section.hidden {
             display: none;
         }
-
         .badge.bg-info {
             background: #0ea5e9 !important;
             color: #fff;
@@ -101,7 +94,6 @@
         .report-date-group.visible {
             display: block;
         }
-
         @media (max-width: 768px) {
             .table-wrapper .table-header {
                 flex-direction: column;
@@ -115,7 +107,6 @@
                 padding: 4px 10px;
             }
         }
-
         .user-dropdown-toggle {
             background: none;
             border: none;
@@ -590,7 +581,7 @@
                     </div>
                 </section>
 
-                <!-- ===== TRANSACTIONS - REDESIGNED FORM ===== -->
+                <!-- ===== TRANSACTIONS - REDESIGNED FORM (KM REMOVED) ===== -->
                 <section class="page-section" id="page-transactions">
                     <div class="stat-card mb-4">
                         <h6 class="fw-semibold mb-3" id="txnFormTitle">Add Transaction</h6>
@@ -661,7 +652,7 @@
                                 </div>
                             </div>
 
-                            <!-- Row 4: Amount -->
+                            <!-- Row 4: Amount (Only amount field, KM removed) -->
                             <div class="row g-3 mt-2">
                                 <div class="col-md-6">
                                     <label class="form-label">Amount <span class="text-danger">*</span></label>
@@ -671,9 +662,9 @@
                                     </div>
                                     <small class="text-muted">Enter the amount (positive values only)</small>
                                 </div>
+                                <!-- KM field removed -->
                                 <div class="col-md-6">
-                                    <label class="form-label">KM Reading</label>
-                                    <input type="text" class="form-control" id="txnKM" placeholder="KM reading (e.g. 1250)" />
+                                    <!-- Empty column for spacing, or we can shift driver here? But we'll keep driver in next row -->
                                 </div>
                             </div>
 
@@ -1031,6 +1022,7 @@
                         </div>
                     </div>
 
+                    <!-- Route Expenses Stats -->
                     <div class="row g-4 mb-4">
                         <div class="col-md-3">
                             <div class="stat-card text-center">
@@ -1430,15 +1422,14 @@
     <!-- ===== MAIN APP LOGIC ===== -->
     <script src="assets/js/app.js"></script>
 
-    <!-- ===== TRANSACTION FORM CONDITIONAL LOGIC ===== -->
+    <!-- ===== TRANSACTION FORM CONDITIONAL LOGIC (Updated for KM removal) ===== -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
 
             // ============================================================
-            // NEW TRANSACTION FORM LOGIC
+            // NEW TRANSACTION FORM LOGIC (KM Removed)
             // ============================================================
 
-            // Get elements
             const txnTypeRadios = document.querySelectorAll('input[name="txnType"]');
             const paymentModeRadios = document.querySelectorAll('input[name="paymentMode"]');
             const chequeSection = document.getElementById('chequeDetailsSection');
@@ -1469,19 +1460,16 @@
                 });
             });
 
-            // Update form visibility based on selections
             function updateFormVisibility() {
                 const txnType = txnTypeHidden.value;
                 const paymentMode = paymentModeHidden.value;
 
-                // Cheque details: show only when payment mode is 'cheque'
                 if (paymentMode === 'cheque') {
                     chequeSection.classList.remove('hidden');
                 } else {
                     chequeSection.classList.add('hidden');
                 }
 
-                // Expense Reason & Petrol: show/hide based on transaction type
                 const expenseReason = document.getElementById('txnExpenseReason');
                 const petrolField = document.getElementById('txnPetrol');
                 const expenseRow = expenseReason?.closest('.row');
@@ -1493,24 +1481,20 @@
                     }
                 }
 
-                // Update amount field mapping
                 updateAmountMapping();
             }
 
-            // Map the single amount to the appropriate hidden field
             function updateAmountMapping() {
                 const amount = parseFloat(txnAmount.value) || 0;
                 const paymentMode = paymentModeHidden.value;
                 const txnType = txnTypeHidden.value;
 
-                // Reset all amount fields
                 txnCash.value = '0';
                 txnCheque.value = '0';
                 txnBanked.value = '0';
                 txnExpense.value = '0';
 
                 if (txnType === 'income') {
-                    // Income: amount goes to cash/cheque/banked based on payment mode
                     if (paymentMode === 'cash') {
                         txnCash.value = amount.toFixed(2);
                     } else if (paymentMode === 'cheque') {
@@ -1519,9 +1503,7 @@
                         txnBanked.value = amount.toFixed(2);
                     }
                 } else if (txnType === 'expense') {
-                    // Expense: amount goes to expense field, and petrol is separate
                     txnExpense.value = amount.toFixed(2);
-                    // Also store in cash/cheque/banked based on payment mode for tracking
                     if (paymentMode === 'cash') {
                         txnCash.value = amount.toFixed(2);
                     } else if (paymentMode === 'cheque') {
@@ -1530,24 +1512,16 @@
                         txnBanked.value = amount.toFixed(2);
                     }
                 } else if (txnType === 'transfer') {
-                    // Bank Transfer: amount goes to banked
                     txnBanked.value = amount.toFixed(2);
                 }
             }
 
-            // Update amount mapping on amount change
             txnAmount.addEventListener('input', updateAmountMapping);
 
-            // Also update when payment mode or type changes via hidden field sync
-            // The radio change events already call updateFormVisibility which calls updateAmountMapping
-
-            // Override the form submission to ensure data is properly mapped
-            const originalSubmit = document.getElementById('transactionForm').submit;
+            // Override form submission to validate
             document.getElementById('transactionForm').addEventListener('submit', function(e) {
-                // Ensure amount mapping is up to date
                 updateAmountMapping();
 
-                // Validate amount
                 const amount = parseFloat(txnAmount.value);
                 if (isNaN(amount) || amount <= 0) {
                     e.preventDefault();
@@ -1555,7 +1529,6 @@
                     return false;
                 }
 
-                // Validate cheque details if payment mode is cheque
                 if (paymentModeHidden.value === 'cheque') {
                     const chequeNo = document.getElementById('txnChequeNo').value.trim();
                     const bank = document.getElementById('txnBank').value.trim();
@@ -1566,7 +1539,6 @@
                     }
                 }
 
-                // Validate route
                 const route = document.getElementById('txnRoute').value;
                 if (!route) {
                     e.preventDefault();
@@ -1577,12 +1549,11 @@
                 return true;
             });
 
-            // Clear form function
+            // Clear form
             document.getElementById('txnClearBtn').addEventListener('click', function() {
                 const form = document.getElementById('transactionForm');
                 form.reset();
 
-                // Reset hidden fields
                 txnCash.value = '0';
                 txnCheque.value = '0';
                 txnBanked.value = '0';
@@ -1590,48 +1561,36 @@
                 txnCredit.value = '0';
                 txnAdvance.value = '0';
 
-                // Reset radio buttons to default
                 document.getElementById('txnTypeIncome').checked = true;
                 document.getElementById('paymentCash').checked = true;
                 txnTypeHidden.value = 'income';
                 paymentModeHidden.value = 'cash';
 
-                // Reset cheque section visibility
                 chequeSection.classList.add('hidden');
 
-                // Reset form title
                 document.getElementById('txnFormTitle').textContent = 'Add Transaction';
                 document.getElementById('txnEditId').value = '';
                 document.getElementById('txnUpdateBtn').style.display = 'none';
                 document.getElementById('txnDeleteBtn').style.display = 'none';
                 document.getElementById('txnSaveBtn').textContent = 'Save';
 
-                // Show expense row
                 const expenseRow = document.getElementById('txnExpenseReason')?.closest('.row');
                 if (expenseRow) expenseRow.style.display = 'flex';
 
-                // Set today's date
                 const dateInput = document.getElementById('txnDate');
                 if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
 
                 showToast('Form cleared', 'info');
             });
 
-            // Set today's date on load
+            // Set today's date
             const dateInput = document.getElementById('txnDate');
             if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
 
-            // Initialize visibility
             updateFormVisibility();
 
-            // ============================================================
-            // EDIT TRANSACTION - Override to handle new form structure
-            // ============================================================
-
-            // Store original edit function
+            // Override editTransaction to handle KM removal
             const originalEditTransaction = window.editTransaction;
-
-            // Override editTransaction to handle new form
             window.editTransaction = async function(docId) {
                 const txn = state.transactions.find(t => t.docId === docId);
                 if (!txn) {
@@ -1639,17 +1598,13 @@
                     return;
                 }
 
-                // Call original edit to fill basic fields
                 if (originalEditTransaction) {
                     await originalEditTransaction(docId);
                 }
 
-                // Now override with our new form logic
                 const amount = (parseFloat(txn.cash) || 0) + (parseFloat(txn.cheque) || 0) + (parseFloat(txn.banked) || 0);
-                const amountField = document.getElementById('txnAmount');
-                if (amountField) amountField.value = amount || 0;
+                if (txnAmount) txnAmount.value = amount || 0;
 
-                // Set payment mode
                 let paymentMode = 'cash';
                 if (parseFloat(txn.cheque) > 0) paymentMode = 'cheque';
                 else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0)
@@ -1658,9 +1613,8 @@
                 document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
                     radio.checked = (radio.value === paymentMode);
                 });
-                document.getElementById('paymentMode').value = paymentMode;
+                paymentModeHidden.value = paymentMode;
 
-                // Set transaction type
                 let txnType = 'income';
                 if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
                     txnType = 'expense';
@@ -1670,20 +1624,15 @@
                 document.querySelectorAll('input[name="txnType"]').forEach(radio => {
                     radio.checked = (radio.value === txnType);
                 });
-                document.getElementById('txnType').value = txnType;
+                txnTypeHidden.value = txnType;
 
-                // Update visibility
                 updateFormVisibility();
-
-                // Update amount mapping
                 updateAmountMapping();
 
-                // Show cheque details if cheque payment
                 if (paymentMode === 'cheque') {
-                    document.getElementById('chequeDetailsSection').classList.remove('hidden');
+                    chequeSection.classList.remove('hidden');
                 }
 
-                // Update buttons
                 document.getElementById('txnUpdateBtn').style.display = 'inline-block';
                 document.getElementById('txnDeleteBtn').style.display = 'inline-block';
                 document.getElementById('txnSaveBtn').textContent = 'Update';
@@ -1693,7 +1642,7 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
-            console.log('✅ Transaction form redesigned with conditional logic');
+            console.log('✅ Transaction form updated: KM removed');
         });
     </script>
 
