@@ -351,6 +351,21 @@
             background: #d1fae5;
             color: #059669;
         }
+        .payment-badge.credit {
+            background: #fce4ec;
+            color: #e11d48;
+        }
+        .payment-edit-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 0 4px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .payment-edit-btn:hover {
+            color: var(--primary);
+        }
     </style>
 </head>
 <body>
@@ -615,7 +630,7 @@
                     </div>
                 </section>
 
-                <!-- ===== TRANSACTIONS (New: Multi-payment) ===== -->
+                <!-- ===== TRANSACTIONS ===== -->
                 <section class="page-section" id="page-transactions">
                     <div class="stat-card mb-4">
                         <h6 class="fw-semibold mb-3" id="txnFormTitle">Add Transaction</h6>
@@ -624,27 +639,23 @@
 
                             <!-- Basic Info -->
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" id="txnDate" required />
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Route <span class="text-danger">*</span></label>
                                     <select class="form-select" id="txnRoute" required>
                                         <option value="">Select Route</option>
                                     </select>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label">Customer</label>
                                     <select class="form-select" id="txnCustomer">
                                         <option value="">Select Customer</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <!-- Driver & Notes -->
-                            <div class="row g-3 mt-2">
-                                <div class="col-md-6">
+                                <div class="col-md-3">
                                     <label class="form-label">Driver</label>
                                     <input type="text" class="form-control" id="txnDriver" placeholder="Driver name" list="driverList" />
                                     <datalist id="driverList">
@@ -654,10 +665,12 @@
                                         <option value="Sunil">
                                         <option value="Ranjith">
                                         <option value="Gamini">
-                                        <option value="Chandana">
                                     </datalist>
                                 </div>
-                                <div class="col-md-6">
+                            </div>
+
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-12">
                                     <label class="form-label">Notes</label>
                                     <input type="text" class="form-control" id="txnNotes" placeholder="Additional notes" />
                                 </div>
@@ -668,7 +681,6 @@
                                 <div class="col-12">
                                     <h6 class="fw-semibold"><i class="bi bi-credit-card me-2"></i>Payments</h6>
                                     <div id="paymentsList" class="mb-2">
-                                        <!-- Payment rows will be added here -->
                                         <div class="text-muted small" id="noPaymentsMsg">No payments added yet.</div>
                                     </div>
 
@@ -680,33 +692,30 @@
                                                 <option value="cash">Cash</option>
                                                 <option value="cheque">Cheque</option>
                                                 <option value="bank">Bank Transfer</option>
+                                                <option value="credit">Credit (Bill)</option>
                                             </select>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Amount</label>
                                             <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="paymentAmount" placeholder="0.00" />
                                         </div>
-                                        <div class="col-md-6 cheque-details" id="chequePaymentFields" style="display:none;">
+                                        <div class="col-md-5 cheque-details" id="chequePaymentFields" style="display:none;">
                                             <div class="row g-1">
-                                                <div class="col-3">
+                                                <div class="col-4">
                                                     <label class="form-label">Cheque No.</label>
                                                     <input type="text" class="form-control form-control-sm" id="paymentChequeNo" placeholder="CHQ-001" />
                                                 </div>
-                                                <div class="col-3">
+                                                <div class="col-4">
                                                     <label class="form-label">Bank</label>
                                                     <input type="text" class="form-control form-control-sm" id="paymentBank" placeholder="Bank" />
                                                 </div>
-                                                <div class="col-3">
-                                                    <label class="form-label">Branch</label>
-                                                    <input type="text" class="form-control form-control-sm" id="paymentBranch" placeholder="Branch" />
-                                                </div>
-                                                <div class="col-3">
+                                                <div class="col-4">
                                                     <label class="form-label">Cheque Date</label>
                                                     <input type="date" class="form-control form-control-sm" id="paymentChequeDate" />
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-2 bank-details" id="bankPaymentFields" style="display:none;">
+                                        <div class="col-md-5 bank-details" id="bankPaymentFields" style="display:none;">
                                             <div class="row g-1">
                                                 <div class="col-6">
                                                     <label class="form-label">Bank</label>
@@ -718,8 +727,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-primary btn-sm w-100" id="addPaymentBtn"><i class="bi bi-plus-circle"></i> Add</button>
+                                        <div class="col-md-2 credit-details" id="creditPaymentFields" style="display:none;">
+                                            <label class="form-label">Note</label>
+                                            <input type="text" class="form-control form-control-sm" id="paymentCreditNote" placeholder="Bill reference" />
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button type="button" class="btn btn-primary btn-sm w-100" id="addPaymentBtn"><i class="bi bi-plus-circle"></i></button>
                                         </div>
                                     </div>
 
@@ -730,7 +743,7 @@
                                 </div>
                             </div>
 
-                            <!-- Hidden fields for backward compatibility (will be auto-calculated) -->
+                            <!-- Hidden fields -->
                             <input type="hidden" id="txnCash" value="0" />
                             <input type="hidden" id="txnCheque" value="0" />
                             <input type="hidden" id="txnBanked" value="0" />
@@ -741,7 +754,6 @@
                             <input type="hidden" id="txnPetrol" value="0" />
                             <input type="hidden" id="txnTransferBank" value="" />
                             <input type="hidden" id="txnTransferRef" value="" />
-                            <input type="hidden" id="txnPrimary" value="" />
 
                             <div class="d-flex gap-2 mt-4 flex-wrap">
                                 <button type="submit" class="btn btn-primary" id="txnSaveBtn"><i class="bi bi-check-lg"></i> Save</button>
@@ -765,6 +777,7 @@
                                     <button class="btn btn-sm btn-outline-primary" data-tab="cash">Cash</button>
                                     <button class="btn btn-sm btn-outline-primary" data-tab="cheque">Cheque</button>
                                     <button class="btn btn-sm btn-outline-primary" data-tab="transfer">Transfer</button>
+                                    <button class="btn btn-sm btn-outline-primary" data-tab="credit">Credit</button>
                                 </div>
                                 <select class="form-select form-select-sm" id="txnRouteFilter" style="width:auto;">
                                     <option value="">All Routes</option>
@@ -1497,461 +1510,6 @@
 
     <!-- ===== MAIN APP LOGIC ===== -->
     <script src="assets/js/app.js"></script>
-
-    <!-- ===== ADDITIONAL SCRIPTS FOR NEW FEATURES ===== -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-
-            // ============================================================
-            // PAYMENTS MANAGEMENT
-            // ============================================================
-            let payments = []; // Array of {mode, amount, chequeNo?, bank?, branch?, chequeDate?, bankName?, ref?}
-
-            function renderPayments() {
-                const container = document.getElementById('paymentsList');
-                const totalSpan = document.getElementById('paymentTotal');
-                const countSpan = document.getElementById('paymentCount');
-                const noMsg = document.getElementById('noPaymentsMsg');
-
-                if (!container) return;
-
-                if (payments.length === 0) {
-                    container.innerHTML = `<div class="text-muted small" id="noPaymentsMsg">No payments added yet.</div>`;
-                    if (totalSpan) totalSpan.textContent = 'Rs. 0.00';
-                    if (countSpan) countSpan.textContent = '0 payments';
-                    return;
-                }
-
-                let html = '';
-                let total = 0;
-                payments.forEach((p, idx) => {
-                    total += p.amount;
-                    let modeLabel = p.mode.charAt(0).toUpperCase() + p.mode.slice(1);
-                    let details = '';
-                    if (p.mode === 'cheque') {
-                        details = ` ${p.chequeNo || ''} ${p.bank || ''}`.trim();
-                    } else if (p.mode === 'bank') {
-                        details = ` ${p.bankName || ''} ${p.ref || ''}`.trim();
-                    }
-                    html += `
-                            <div class="payment-detail-row">
-                                <div class="pay-info">
-                                    <span class="payment-badge ${p.mode}">${modeLabel}</span>
-                                    <span class="ms-2">${formatCurrency(p.amount)}</span>
-                                    ${details ? `<span class="text-muted small ms-2">(${details})</span>` : ''}
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-payment" data-index="${idx}">
-                                    <i class="bi bi-x-circle"></i>
-                                </button>
-                            </div>
-                        `;
-                });
-
-                container.innerHTML = html;
-                if (totalSpan) totalSpan.textContent = formatCurrency(total);
-                if (countSpan) countSpan.textContent = payments.length + ' payments';
-
-                // Attach remove events
-                container.querySelectorAll('.remove-payment').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const idx = parseInt(this.dataset.index);
-                        payments.splice(idx, 1);
-                        renderPayments();
-                        updateHiddenFields();
-                    });
-                });
-            }
-
-            function updateHiddenFields() {
-                let totalCash = 0,
-                    totalCheque = 0,
-                    totalBanked = 0;
-                payments.forEach(p => {
-                    if (p.mode === 'cash') totalCash += p.amount;
-                    else if (p.mode === 'cheque') totalCheque += p.amount;
-                    else if (p.mode === 'bank') totalBanked += p.amount;
-                });
-                document.getElementById('txnCash').value = totalCash.toFixed(2);
-                document.getElementById('txnCheque').value = totalCheque.toFixed(2);
-                document.getElementById('txnBanked').value = totalBanked.toFixed(2);
-
-                // Also store payments array in a hidden field for form submission
-                // We'll use a hidden input to store JSON
-                let paymentsJson = document.getElementById('txnPaymentsJson');
-                if (!paymentsJson) {
-                    paymentsJson = document.createElement('input');
-                    paymentsJson.type = 'hidden';
-                    paymentsJson.id = 'txnPaymentsJson';
-                    document.getElementById('transactionForm').appendChild(paymentsJson);
-                }
-                paymentsJson.value = JSON.stringify(payments);
-            }
-
-            // Add payment
-            document.getElementById('addPaymentBtn').addEventListener('click', function() {
-                const mode = document.getElementById('paymentModeSelect').value;
-                const amount = parseFloat(document.getElementById('paymentAmount').value);
-                if (isNaN(amount) || amount <= 0) {
-                    showToast('Please enter a valid amount', 'warning');
-                    return;
-                }
-
-                let payment = { mode, amount };
-
-                if (mode === 'cheque') {
-                    const chequeNo = document.getElementById('paymentChequeNo').value.trim();
-                    const bank = document.getElementById('paymentBank').value.trim();
-                    const branch = document.getElementById('paymentBranch').value.trim();
-                    const chequeDate = document.getElementById('paymentChequeDate').value;
-                    if (!chequeNo || !bank) {
-                        showToast('Please enter Cheque No. and Bank for Cheque payments', 'warning');
-                        return;
-                    }
-                    payment.chequeNo = chequeNo;
-                    payment.bank = bank;
-                    payment.branch = branch || null;
-                    payment.chequeDate = chequeDate || null;
-                    // Clear fields
-                    document.getElementById('paymentChequeNo').value = '';
-                    document.getElementById('paymentBank').value = '';
-                    document.getElementById('paymentBranch').value = '';
-                    document.getElementById('paymentChequeDate').value = '';
-                } else if (mode === 'bank') {
-                    const bankName = document.getElementById('paymentBankName').value.trim();
-                    const ref = document.getElementById('paymentRef').value.trim();
-                    if (!bankName || !ref) {
-                        showToast('Please enter Bank Name and Reference for Bank Transfer', 'warning');
-                        return;
-                    }
-                    payment.bankName = bankName;
-                    payment.ref = ref;
-                    document.getElementById('paymentBankName').value = '';
-                    document.getElementById('paymentRef').value = '';
-                }
-
-                payments.push(payment);
-                document.getElementById('paymentAmount').value = '';
-                renderPayments();
-                updateHiddenFields();
-                showToast('Payment added', 'success');
-            });
-
-            // Toggle payment fields based on mode
-            document.getElementById('paymentModeSelect').addEventListener('change', function() {
-                const val = this.value;
-                document.getElementById('chequePaymentFields').style.display = (val === 'cheque') ? 'flex' : 'none';
-                document.getElementById('bankPaymentFields').style.display = (val === 'bank') ? 'flex' : 'none';
-            });
-            // Trigger initial
-            document.getElementById('paymentModeSelect').dispatchEvent(new Event('change'));
-
-            // ============================================================
-            // CLEAR FORM
-            // ============================================================
-            document.getElementById('txnClearBtn').addEventListener('click', function() {
-                const form = document.getElementById('transactionForm');
-                form.reset();
-                payments = [];
-                renderPayments();
-                updateHiddenFields();
-                document.getElementById('txnEditId').value = '';
-                document.getElementById('txnUpdateBtn').style.display = 'none';
-                document.getElementById('txnDeleteBtn').style.display = 'none';
-                document.getElementById('txnSaveBtn').textContent = 'Save';
-                document.getElementById('txnFormTitle').textContent = 'Add Transaction';
-                document.getElementById('txnDate').value = getToday();
-                document.getElementById('paymentModeSelect').value = 'cash';
-                document.getElementById('paymentModeSelect').dispatchEvent(new Event('change'));
-                showToast('Form cleared', 'info');
-            });
-
-            // ============================================================
-            // OVERRIDE EDIT TRANSACTION FOR PAYMENTS
-            // ============================================================
-            const originalEditTransaction = window.editTransaction;
-            window.editTransaction = function(docId) {
-                const txn = state.transactions.find(t => t.docId === docId);
-                if (!txn) {
-                    showToast('Transaction not found', 'danger');
-                    return;
-                }
-
-                // If it's an expense, redirect to editExpense
-                if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
-                    window.editExpense(docId);
-                    return;
-                }
-
-                // Load basic fields
-                document.getElementById('txnDate').value = txn.date || getToday();
-                document.getElementById('txnRoute').value = txn.route || '';
-                document.getElementById('txnCustomer').value = txn.customer || '';
-                document.getElementById('txnDriver').value = txn.driver || '';
-                document.getElementById('txnNotes').value = txn.notes || '';
-                document.getElementById('txnEditId').value = docId;
-                document.getElementById('txnUpdateBtn').style.display = 'inline-block';
-                document.getElementById('txnDeleteBtn').style.display = 'inline-block';
-                document.getElementById('txnSaveBtn').textContent = 'Update';
-                document.getElementById('txnFormTitle').textContent = 'Edit Transaction';
-
-                // Load payments
-                payments = [];
-                if (txn.payments && Array.isArray(txn.payments)) {
-                    payments = txn.payments.map(p => ({ ...p }));
-                } else {
-                    // Backward compatibility: convert old fields to payments
-                    if (parseFloat(txn.cash) > 0) {
-                        payments.push({ mode: 'cash', amount: parseFloat(txn.cash) });
-                    }
-                    if (parseFloat(txn.cheque) > 0) {
-                        payments.push({
-                            mode: 'cheque',
-                            amount: parseFloat(txn.cheque),
-                            chequeNo: txn.chequeNo || '',
-                            bank: txn.bank || '',
-                            branch: txn.branch || '',
-                            chequeDate: txn.chequeDate || ''
-                        });
-                    }
-                    if (parseFloat(txn.banked) > 0) {
-                        payments.push({
-                            mode: 'bank',
-                            amount: parseFloat(txn.banked),
-                            bankName: txn.transferBank || '',
-                            ref: txn.transferRef || ''
-                        });
-                    }
-                }
-                renderPayments();
-                updateHiddenFields();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            };
-
-            // ============================================================
-            // OVERRIDE FORM SUBMIT TO INCLUDE PAYMENTS
-            // ============================================================
-            const originalFormSubmit = document.getElementById('transactionForm').submit;
-            document.getElementById('transactionForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                // Validate payments
-                if (payments.length === 0) {
-                    showToast('Please add at least one payment', 'warning');
-                    return;
-                }
-
-                // Validate route
-                const route = document.getElementById('txnRoute').value;
-                if (!route) {
-                    showToast('Please select a route', 'warning');
-                    return;
-                }
-
-                // Build data
-                const data = {
-                    date: document.getElementById('txnDate').value,
-                    route: route,
-                    customer: document.getElementById('txnCustomer').value || null,
-                    driver: document.getElementById('txnDriver').value || null,
-                    notes: document.getElementById('txnNotes').value || null,
-                    payments: payments.map(p => ({ ...p })),
-                    // Backward compatible fields
-                    cash: parseFloat(document.getElementById('txnCash').value) || 0,
-                    cheque: parseFloat(document.getElementById('txnCheque').value) || 0,
-                    banked: parseFloat(document.getElementById('txnBanked').value) || 0,
-                    credit: 0,
-                    advance: 0,
-                    expense: 0,
-                    petrol: 0,
-                    chequeStatus: 'pending',
-                    updatedAt: new Date().toISOString()
-                };
-
-                // Add cheque details if any cheque payment
-                const chequePay = payments.find(p => p.mode === 'cheque');
-                if (chequePay) {
-                    data.chequeNo = chequePay.chequeNo || null;
-                    data.bank = chequePay.bank || null;
-                    data.branch = chequePay.branch || null;
-                    data.chequeDate = chequePay.chequeDate || null;
-                } else {
-                    data.chequeNo = null;
-                    data.bank = null;
-                    data.branch = null;
-                    data.chequeDate = null;
-                }
-
-                // Bank transfer details
-                const bankPay = payments.find(p => p.mode === 'bank');
-                if (bankPay) {
-                    data.transferBank = bankPay.bankName || null;
-                    data.transferRef = bankPay.ref || null;
-                } else {
-                    data.transferBank = null;
-                    data.transferRef = null;
-                }
-
-                const editId = document.getElementById('txnEditId').value;
-
-                (async () => {
-                    try {
-                        if (editId) {
-                            await db.collection('transactions').doc(editId).update(data);
-                            showToast('Transaction updated successfully!');
-                        } else {
-                            data.id = generateId();
-                            data.createdAt = new Date().toISOString();
-                            await db.collection('transactions').add(data);
-                            showToast('Transaction saved successfully!');
-                        }
-                        // Reset form
-                        document.getElementById('txnClearBtn').click();
-                        await loadAllData();
-                        renderAll();
-                        initDashboard();
-                    } catch (err) {
-                        showToast('Error: ' + err.message, 'danger');
-                        console.error(err);
-                    }
-                })();
-            });
-
-            // ============================================================
-            // OVERRIDE DELETE AND OTHER FUNCTIONS
-            // ============================================================
-            // deleteTransaction already exists in app.js, no need to override
-
-            // ============================================================
-            // OVERRIDE RENDER TRANSACTIONS TO SHOW PAYMENTS
-            // ============================================================
-            const originalRenderTransactions = window.renderTransactions;
-            window.renderTransactions = function() {
-                const tbody = document.getElementById('txnTableBody');
-                if (!tbody) return;
-
-                const search = document.getElementById('txnSearch');
-                const searchVal = search ? search.value.toLowerCase() : '';
-                const routeFilter = document.getElementById('txnRouteFilter');
-                const routeVal = routeFilter ? routeFilter.value : '';
-
-                let filtered = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
-
-                if (searchVal) {
-                    filtered = filtered.filter(t =>
-                        (t.route || '').toLowerCase().includes(searchVal) ||
-                        (t.customer || '').toLowerCase().includes(searchVal) ||
-                        (t.customId || '').toLowerCase().includes(searchVal) ||
-                        (t.id || '').toLowerCase().includes(searchVal)
-                    );
-                }
-                if (routeVal) {
-                    filtered = filtered.filter(t => t.route === routeVal);
-                }
-
-                // Tab filter
-                const activeTab = document.querySelector('[data-tab].active');
-                const tab = activeTab ? activeTab.dataset.tab : 'all';
-                if (tab === 'cash') {
-                    filtered = filtered.filter(t => (t.cash || 0) > 0);
-                } else if (tab === 'cheque') {
-                    filtered = filtered.filter(t => (t.cheque || 0) > 0);
-                } else if (tab === 'transfer') {
-                    filtered = filtered.filter(t => (t.banked || 0) > 0 && (t.cash || 0) === 0 && (t.cheque || 0) === 0);
-                }
-
-                const countEl = document.getElementById('txnCount');
-                if (countEl) countEl.textContent = filtered.length + ' transactions';
-
-                const totalAmount = filtered.reduce((s, t) => {
-                    const cash = parseFloat(t.cash) || 0;
-                    const cheque = parseFloat(t.cheque) || 0;
-                    const banked = parseFloat(t.banked) || 0;
-                    return s + cash + cheque + banked;
-                }, 0);
-                const totalEl = document.getElementById('txnTotalAmount');
-                if (totalEl) totalEl.textContent = 'Total: ' + formatCurrency(totalAmount);
-
-                if (!filtered.length) {
-                    tbody.innerHTML =
-                    `<tr><td colspan="7" class="text-center text-muted py-4">No transactions found</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = filtered.slice(0, 50).map(t => {
-                    let paymentsHtml = '';
-                    if (t.payments && Array.isArray(t.payments)) {
-                        paymentsHtml = t.payments.map(p => {
-                            let label = p.mode.charAt(0).toUpperCase() + p.mode.slice(1);
-                            return `<span class="payment-badge ${p.mode} me-1">${label} ${formatCurrency(p.amount)}</span>`;
-                        }).join(' ');
-                    } else {
-                        // Backward compatibility
-                        const parts = [];
-                        if (parseFloat(t.cash) > 0) parts.push(
-                            `<span class="payment-badge cash me-1">Cash ${formatCurrency(t.cash)}</span>`);
-                        if (parseFloat(t.cheque) > 0) parts.push(
-                            `<span class="payment-badge cheque me-1">Cheque ${formatCurrency(t.cheque)}</span>`);
-                        if (parseFloat(t.banked) > 0) parts.push(
-                            `<span class="payment-badge bank me-1">Bank ${formatCurrency(t.banked)}</span>`);
-                        paymentsHtml = parts.join(' ');
-                    }
-                    const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0);
-                    return `
-                            <tr>
-                                <td><code style="font-size:12px;">${t.customId || t.id || 'N/A'}</code></td>
-                                <td>${formatDate(t.date)}</td>
-                                <td>${t.route || '-'}</td>
-                                <td>${t.customer || '-'}</td>
-                                <td>${paymentsHtml}</td>
-                                <td>${formatCurrency(total)}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
-                                </td>
-                            </tr>
-                        `;
-                }).join('');
-            };
-
-            // ============================================================
-            // OVERRIDE NAVIGATE TO REFRESH TRANSACTIONS
-            // ============================================================
-            const origNavigate = window.navigateTo;
-            window.navigateTo = function(page) {
-                if (origNavigate) origNavigate(page);
-                if (page === 'transactions') {
-                    setTimeout(window.renderTransactions, 100);
-                }
-            };
-
-            // ============================================================
-            // SAMPLE DATA GENERATOR - Update to include payments
-            // ============================================================
-            const origGenerateSample = window.generateSampleData;
-            window.generateSampleData = async function() {
-                // Use original if exists, but we'll modify to add payments
-                if (origGenerateSample) {
-                    await origGenerateSample();
-                    // After generating, convert old data to payments format
-                    // This is already handled in loadAllData (we'll add conversion there)
-                    // Reload data
-                    await loadAllData();
-                    renderAll();
-                    initDashboard();
-                    showToast('Sample data loaded with multi-payment support', 'success');
-                    return;
-                }
-                // Fallback: call the original from app.js (if defined)
-                try {
-                    await generateSampleData();
-                } catch (e) {
-                    console.error('Sample data error:', e);
-                }
-            };
-
-            console.log('✅ Multi-payment transaction system initialized');
-        });
-    </script>
 
 </body>
 </html>
