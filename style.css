@@ -1,6 +1,6 @@
 /* ================================================================
    JDMS - Jayasinghe Distributors Management System
-   Complete Styles
+   Complete Styles (FULL REPLACE)
    ================================================================ */
 
 :root {
@@ -30,6 +30,9 @@
     --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
+/* ================================================================
+   GLOBAL RESET & BASE
+   ================================================================ */
 * {
     margin: 0;
     padding: 0;
@@ -58,6 +61,9 @@ a {
     border-radius: 8px;
 }
 
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
 .sidebar {
     position: fixed;
     top: 0;
@@ -172,6 +178,9 @@ a {
     text-align: center;
 }
 
+/* ================================================================
+   MAIN WRAPPER & TOPBAR
+   ================================================================ */
 .main-wrapper {
     margin-left: var(--sidebar-width);
     min-height: 100vh;
@@ -365,6 +374,9 @@ a {
     border-color: #7f1d1d;
 }
 
+/* ================================================================
+   QUICK ACTIONS
+   ================================================================ */
 .quick-actions {
     display: flex;
     gap: 8px;
@@ -376,6 +388,9 @@ a {
     border-radius: 8px;
 }
 
+/* ================================================================
+   STAT CARDS
+   ================================================================ */
 .stat-card {
     background: var(--card-bg);
     border-radius: var(--radius);
@@ -425,6 +440,9 @@ a {
     color: #ef4444;
 }
 
+/* ================================================================
+   TABLE WRAPPER
+   ================================================================ */
 .table-wrapper {
     background: var(--card-bg);
     border-radius: var(--radius);
@@ -500,6 +518,9 @@ a {
     color: var(--text-muted);
 }
 
+/* ================================================================
+   FORMS & BUTTONS
+   ================================================================ */
 .form-control,
 .form-select {
     background: var(--bg);
@@ -566,6 +587,9 @@ a {
     color: var(--text);
 }
 
+/* ================================================================
+   PAGE SECTIONS & ANIMATIONS
+   ================================================================ */
 .page-section {
     display: none;
     animation: fadeUp 0.35s ease;
@@ -585,6 +609,9 @@ a {
     }
 }
 
+/* ================================================================
+   SIDEBAR TOGGLE (Mobile)
+   ================================================================ */
 .sidebar-toggle {
     display: none;
     background: transparent;
@@ -601,45 +628,9 @@ a {
     z-index: 1049;
 }
 
-@media (max-width: 992px) {
-    .sidebar {
-        transform: translateX(-100%);
-    }
-    .sidebar.open {
-        transform: translateX(0);
-    }
-    .sidebar-overlay.open {
-        display: block;
-    }
-    .main-wrapper {
-        margin-left: 0;
-    }
-    .sidebar-toggle {
-        display: block;
-    }
-    .topbar {
-        padding: 0 16px;
-    }
-    .page-content {
-        padding: 16px;
-    }
-    .stat-card .stat-value {
-        font-size: 20px;
-    }
-    .table-wrapper .table-header .search-box input {
-        width: 120px;
-    }
-    .topbar-stats {
-        display: none;
-    }
-    .user-dropdown-toggle .user-name {
-        display: none;
-    }
-    .user-dropdown-toggle .chevron {
-        display: none;
-    }
-}
-
+/* ================================================================
+   BADGES
+   ================================================================ */
 .badge-status {
     padding: 4px 12px;
     border-radius: 20px;
@@ -669,6 +660,9 @@ a {
     color: #b91c1c;
 }
 
+/* ================================================================
+   EMPTY STATE
+   ================================================================ */
 .empty-state {
     text-align: center;
     padding: 48px 24px;
@@ -683,6 +677,10 @@ a {
     font-weight: 600;
     color: var(--text);
 }
+
+/* ================================================================
+   TOASTS & SPINNERS
+   ================================================================ */
 .toast-container {
     z-index: 9999;
 }
@@ -705,6 +703,9 @@ a {
     }
 }
 
+/* ================================================================
+   THEME SWITCH
+   ================================================================ */
 .theme-switch {
     position: relative;
     width: 42px;
@@ -733,6 +734,9 @@ a {
     transform: translateX(20px);
 }
 
+/* ================================================================
+   LOGO PREVIEW
+   ================================================================ */
 .logo-preview {
     width: 80px;
     height: 80px;
@@ -757,11 +761,17 @@ a {
     border-color: var(--primary-light);
 }
 
+/* ================================================================
+   CHART CONTAINER
+   ================================================================ */
 .chart-container {
     position: relative;
     height: 280px;
 }
 
+/* ================================================================
+   LOGIN PAGE
+   ================================================================ */
 .login-container {
     display: flex;
     align-items: center;
@@ -813,6 +823,199 @@ a {
     margin-top: 8px;
 }
 
+/* ================================================================
+   PROFILE PAGE
+   ================================================================ */
+.profile-avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 700;
+    margin: 0 auto 16px;
+    border: 4px solid var(--border);
+}
+.profile-info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+.profile-info-item .label {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 14px;
+}
+.profile-info-item .value {
+    font-weight: 600;
+    font-size: 14px;
+    text-align: right;
+}
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+}
+.profile-stat-box {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+}
+.profile-stat-box .num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+}
+.profile-stat-box .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+@media (max-width: 576px) {
+    .profile-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* ================================================================
+   REPORT DATE GROUP (Visibility toggle)
+   ================================================================ */
+.report-date-group {
+    display: none;
+}
+.report-date-group.visible {
+    display: block;
+}
+
+/* ================================================================
+   TRANSACTION TABS (Button Group)
+   ================================================================ */
+.btn-group .btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.btn-group .btn.active:hover {
+    background: var(--primary-light);
+    color: #fff;
+}
+
+/* ================================================================
+   ROUTE EXPENSES PAGE SPECIFIC
+   ================================================================ */
+#routeExpenseResult .table-responsive,
+#reTableBody .table-responsive {
+    max-height: 400px;
+    overflow-y: auto;
+}
+#routeExpenseResult .table tbody tr:hover,
+#reTableBody .table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="dark"] #routeExpenseResult .table tbody tr:hover,
+[data-theme="dark"] #reTableBody .table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Route Expenses Stats Cards (4 col grid inside stats) */
+.route-expense-stats .stat-card .stat-value {
+    font-size: 22px;
+}
+
+/* ================================================================
+   MISC BADGES
+   ================================================================ */
+.badge.bg-info {
+    background: #0ea5e9 !important;
+    color: #fff;
+}
+
+/* ================================================================
+   RESPONSIVE DESIGN
+   ================================================================ */
+@media (max-width: 992px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    .sidebar-overlay.open {
+        display: block;
+    }
+    .main-wrapper {
+        margin-left: 0;
+    }
+    .sidebar-toggle {
+        display: block;
+    }
+    .topbar {
+        padding: 0 16px;
+    }
+    .page-content {
+        padding: 16px;
+    }
+    .stat-card .stat-value {
+        font-size: 20px;
+    }
+    .table-wrapper .table-header .search-box input {
+        width: 120px;
+    }
+    .topbar-stats {
+        display: none;
+    }
+    .user-dropdown-toggle .user-name {
+        display: none;
+    }
+    .user-dropdown-toggle .chevron {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-wrapper .table-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .btn-group {
+        flex-wrap: wrap;
+    }
+    .btn-group .btn {
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+    /* Route Expenses filter row stacking */
+    #page-route-expenses .row.g-3 > .col-md-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    .profile-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    #page-route-expenses .row.g-3 > .col-md-3 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    .login-card {
+        padding: 20px;
+        margin: 0 16px;
+    }
+}
+
+/* ================================================================
+   PRINT STYLES
+   ================================================================ */
 @media print {
     .sidebar,
     .topbar,
@@ -829,66 +1032,23 @@ a {
         box-shadow: none !important;
         border: 1px solid #ddd !important;
     }
-}
-
-/* ================================================================
-   Additional styles for new features (JDMS v2.0)
-   ================================================================ */
-
-/* Transaction tabs */
-.btn-group .btn.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-}
-.btn-group .btn.active:hover {
-    background: var(--primary-light);
-    color: #fff;
-}
-
-/* Route expense module */
-#routeExpenseResult .table-responsive {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-/* Customer balance badge */
-.customer-balance {
-    font-weight: 600;
-}
-
-/* Notification toast styling */
-.toast-container .toast {
-    min-width: 300px;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-/* Badge for route in customer list */
-.badge.bg-info {
-    background: #0ea5e9 !important;
-    color: #fff;
-}
-
-/* Responsive table */
-@media (max-width: 768px) {
-    .table-wrapper .table-header {
-        flex-direction: column;
-        align-items: stretch;
+    .table-wrapper {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
     }
-    .btn-group {
-        flex-wrap: wrap;
+    .btn {
+        display: none !important;
     }
-    .btn-group .btn {
-        font-size: 12px;
-        padding: 4px 10px;
+    .table-header .search-box,
+    .table-header .btn-group {
+        display: none !important;
     }
-}
-
-/* Hover effect for route expense rows */
-#routeExpenseResult .table tbody tr:hover {
-    background: rgba(0, 0, 0, 0.03);
-}
-[data-theme="dark"] #routeExpenseResult .table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.03);
+    #reportResult .table-responsive {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    #routeExpenseResult .table-responsive {
+        max-height: none !important;
+        overflow: visible !important;
+    }
 }
