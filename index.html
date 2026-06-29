@@ -44,10 +44,53 @@
             background: var(--primary-light);
             color: #fff;
         }
-        #routeExpenseResult .table-responsive {
-            max-height: 400px;
-            overflow-y: auto;
+
+        /* Payment mode buttons */
+        .payment-mode-group .btn {
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
+        .payment-mode-group .btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .payment-mode-group .btn.active:hover {
+            background: var(--primary-light);
+            color: #fff;
+        }
+
+        /* Transaction type buttons */
+        .txn-type-group .btn {
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .txn-type-group .btn.active {
+            background: var(--accent);
+            color: var(--primary-dark);
+            border-color: var(--accent);
+        }
+        .txn-type-group .btn.active:hover {
+            background: var(--accent-light);
+            color: var(--primary-dark);
+        }
+
+        /* Cheque details section */
+        .cheque-details-section {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        .cheque-details-section.hidden {
+            display: none;
+        }
+
         .badge.bg-info {
             background: #0ea5e9 !important;
             color: #fff;
@@ -58,6 +101,7 @@
         .report-date-group.visible {
             display: block;
         }
+
         @media (max-width: 768px) {
             .table-wrapper .table-header {
                 flex-direction: column;
@@ -71,6 +115,7 @@
                 padding: 4px 10px;
             }
         }
+
         .user-dropdown-toggle {
             background: none;
             border: none;
@@ -545,123 +590,166 @@
                     </div>
                 </section>
 
-                <!-- ===== TRANSACTIONS ===== -->
+                <!-- ===== TRANSACTIONS - REDESIGNED FORM ===== -->
                 <section class="page-section" id="page-transactions">
                     <div class="stat-card mb-4">
                         <h6 class="fw-semibold mb-3" id="txnFormTitle">Add Transaction</h6>
                         <form id="transactionForm">
                             <input type="hidden" id="txnEditId" value="" />
+
+                            <!-- Row 1: Basic Info -->
                             <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Date</label>
+                                <div class="col-md-4">
+                                    <label class="form-label">Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" id="txnDate" required />
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Route</label>
+                                <div class="col-md-4">
+                                    <label class="form-label">Route <span class="text-danger">*</span></label>
                                     <select class="form-select" id="txnRoute" required>
                                         <option value="">Select Route</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-4">
                                     <label class="form-label">Customer</label>
                                     <select class="form-select" id="txnCustomer">
                                         <option value="">Select Customer</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Transaction Type</label>
-                                    <select class="form-select" id="txnType">
-                                        <option value="income">Income (Cash/Cheque)</option>
-                                        <option value="expense">Expense</option>
-                                        <option value="transfer">Bank Transfer</option>
-                                    </select>
+                            </div>
+
+                            <!-- Row 2: Transaction Type (Radio Buttons) -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Transaction Type <span class="text-danger">*</span></label>
+                                    <div class="btn-group txn-type-group w-100" role="group" id="txnTypeGroup">
+                                        <input type="radio" class="btn-check" name="txnType" id="txnTypeIncome" value="income" checked autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="txnTypeIncome">
+                                            <i class="bi bi-arrow-down-circle me-1"></i> Income
+                                        </label>
+                                        <input type="radio" class="btn-check" name="txnType" id="txnTypeExpense" value="expense" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="txnTypeExpense">
+                                            <i class="bi bi-arrow-up-circle me-1"></i> Expense
+                                        </label>
+                                        <input type="radio" class="btn-check" name="txnType" id="txnTypeTransfer" value="transfer" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="txnTypeTransfer">
+                                            <i class="bi bi-arrow-left-right me-1"></i> Bank Transfer
+                                        </label>
+                                    </div>
+                                    <input type="hidden" id="txnType" value="income" />
                                 </div>
                             </div>
-                            <!-- Income Fields -->
-                            <div class="row g-3 mt-1" id="incomeFields">
-                                <div class="col-md-2">
-                                    <label class="form-label">Cash</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnCash" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Cheque</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnCheque" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Cheque No.</label>
-                                    <input type="text" class="form-control" id="txnChequeNo" placeholder="CHQ-001" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Bank</label>
-                                    <input type="text" class="form-control" id="txnBank" placeholder="Bank name" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Branch</label>
-                                    <input type="text" class="form-control" id="txnBranch" placeholder="Branch" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Cheque Date</label>
-                                    <input type="date" class="form-control" id="txnChequeDate" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Credit</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnCredit" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Advance</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnAdvance" placeholder="0.00" />
+
+                            <!-- Row 3: Payment Mode (Radio Buttons) -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Payment Mode <span class="text-danger">*</span></label>
+                                    <div class="btn-group payment-mode-group w-100" role="group" id="paymentModeGroup">
+                                        <input type="radio" class="btn-check" name="paymentMode" id="paymentCash" value="cash" checked autocomplete="off">
+                                        <label class="btn btn-outline-success" for="paymentCash">
+                                            <i class="bi bi-cash-stack me-1"></i> Cash
+                                        </label>
+                                        <input type="radio" class="btn-check" name="paymentMode" id="paymentCheque" value="cheque" autocomplete="off">
+                                        <label class="btn btn-outline-warning" for="paymentCheque">
+                                            <i class="bi bi-bank me-1"></i> Cheque
+                                        </label>
+                                        <input type="radio" class="btn-check" name="paymentMode" id="paymentBank" value="bank" autocomplete="off">
+                                        <label class="btn btn-outline-info" for="paymentBank">
+                                            <i class="bi bi-building me-1"></i> Bank Transfer
+                                        </label>
+                                    </div>
+                                    <input type="hidden" id="paymentMode" value="cash" />
                                 </div>
                             </div>
-                            <!-- Expense Fields -->
-                            <div class="row g-3 mt-1" id="expenseFields" style="display:none;">
-                                <div class="col-md-3">
-                                    <label class="form-label">Expense Amount</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnExpense" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Expense Reason</label>
-                                    <input type="text" class="form-control" id="txnExpenseReason" placeholder="Reason" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Petrol</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnPetrol" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">KM</label>
-                                    <input type="text" class="form-control" id="txnKM" placeholder="KM reading" />
-                                </div>
-                            </div>
-                            <!-- Transfer Fields -->
-                            <div class="row g-3 mt-1" id="transferFields" style="display:none;">
-                                <div class="col-md-4">
-                                    <label class="form-label">Bank Transfer Amount</label>
-                                    <input type="number" step="0.01" class="form-control" id="txnBanked" placeholder="0.00" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Bank Name</label>
-                                    <input type="text" class="form-control" id="txnTransferBank" placeholder="Bank name" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Reference</label>
-                                    <input type="text" class="form-control" id="txnTransferRef" placeholder="Reference" />
-                                </div>
-                            </div>
-                            <!-- Common Fields -->
-                            <div class="row g-3 mt-1">
-                                <div class="col-md-3">
-                                    <label class="form-label">Driver</label>
-                                    <input type="text" class="form-control" id="txnDriver" placeholder="Driver name" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Primary</label>
-                                    <input type="text" class="form-control" id="txnPrimary" placeholder="Primary contact" />
+
+                            <!-- Row 4: Amount -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text" id="currencySymbol">Rs.</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" id="txnAmount" placeholder="0.00" required />
+                                    </div>
+                                    <small class="text-muted">Enter the amount (positive values only)</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Notes</label>
-                                    <input type="text" class="form-control" id="txnNotes" placeholder="Notes" />
+                                    <label class="form-label">KM Reading</label>
+                                    <input type="text" class="form-control" id="txnKM" placeholder="KM reading (e.g. 1250)" />
                                 </div>
                             </div>
-                            <div class="d-flex gap-2 mt-3 flex-wrap">
+
+                            <!-- Row 5: Cheque Details (Conditional) -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-12">
+                                    <div class="cheque-details-section hidden" id="chequeDetailsSection">
+                                        <h6 class="fw-semibold mb-3"><i class="bi bi-bank me-2"></i>Cheque Details</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Cheque No.</label>
+                                                <input type="text" class="form-control" id="txnChequeNo" placeholder="CHQ-001" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Bank</label>
+                                                <input type="text" class="form-control" id="txnBank" placeholder="Bank name" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Branch</label>
+                                                <input type="text" class="form-control" id="txnBranch" placeholder="Branch" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Cheque Date</label>
+                                                <input type="date" class="form-control" id="txnChequeDate" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Row 6: Expense Details (Conditional) & Driver -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Expense Reason</label>
+                                    <input type="text" class="form-control" id="txnExpenseReason" placeholder="Reason for expense" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Petrol</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="txnPetrol" placeholder="0.00" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Driver</label>
+                                    <input type="text" class="form-control" id="txnDriver" placeholder="Driver name" list="driverList" />
+                                    <datalist id="driverList">
+                                        <option value="Saman">
+                                        <option value="Kamal">
+                                        <option value="Nimal">
+                                        <option value="Sunil">
+                                        <option value="Ranjith">
+                                        <option value="Gamini">
+                                        <option value="Chandana">
+                                    </datalist>
+                                </div>
+                            </div>
+
+                            <!-- Row 7: Notes -->
+                            <div class="row g-3 mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">Notes</label>
+                                    <textarea class="form-control" id="txnNotes" rows="2" placeholder="Any additional notes..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Hidden fields for data compatibility -->
+                            <input type="hidden" id="txnCash" value="0" />
+                            <input type="hidden" id="txnCheque" value="0" />
+                            <input type="hidden" id="txnBanked" value="0" />
+                            <input type="hidden" id="txnCredit" value="0" />
+                            <input type="hidden" id="txnAdvance" value="0" />
+                            <input type="hidden" id="txnExpense" value="0" />
+                            <input type="hidden" id="txnTransferBank" value="" />
+                            <input type="hidden" id="txnTransferRef" value="" />
+                            <input type="hidden" id="txnPrimary" value="" />
+
+                            <!-- Buttons -->
+                            <div class="d-flex gap-2 mt-4 flex-wrap">
                                 <button type="submit" class="btn btn-primary" id="txnSaveBtn"><i class="bi bi-check-lg"></i> Save</button>
                                 <button type="button" class="btn btn-outline-secondary btn-clear" id="txnClearBtn"><i class="bi bi-eraser"></i> Clear</button>
                                 <button type="button" class="btn btn-outline-primary" id="txnUpdateBtn" style="display:none;"><i class="bi bi-pencil"></i> Update</button>
@@ -870,7 +958,7 @@
                     </div>
                 </section>
 
-                <!-- ===== ROUTES (Only Routes List) ===== -->
+                <!-- ===== ROUTES ===== -->
                 <section class="page-section" id="page-routes">
                     <div class="stat-card mb-4">
                         <h6 class="fw-semibold mb-3">Manage Routes</h6>
@@ -943,7 +1031,6 @@
                         </div>
                     </div>
 
-                    <!-- Route Expenses Stats -->
                     <div class="row g-4 mb-4">
                         <div class="col-md-3">
                             <div class="stat-card text-center">
@@ -1340,8 +1427,275 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
     </script>
 
-    <!-- ===== MAIN APP LOGIC (FULL COMPLETE) ===== -->
+    <!-- ===== MAIN APP LOGIC ===== -->
     <script src="assets/js/app.js"></script>
+
+    <!-- ===== TRANSACTION FORM CONDITIONAL LOGIC ===== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            // ============================================================
+            // NEW TRANSACTION FORM LOGIC
+            // ============================================================
+
+            // Get elements
+            const txnTypeRadios = document.querySelectorAll('input[name="txnType"]');
+            const paymentModeRadios = document.querySelectorAll('input[name="paymentMode"]');
+            const chequeSection = document.getElementById('chequeDetailsSection');
+            const txnAmount = document.getElementById('txnAmount');
+            const txnCash = document.getElementById('txnCash');
+            const txnCheque = document.getElementById('txnCheque');
+            const txnBanked = document.getElementById('txnBanked');
+            const txnExpense = document.getElementById('txnExpense');
+            const txnTypeHidden = document.getElementById('txnType');
+            const paymentModeHidden = document.getElementById('paymentMode');
+
+            // Sync hidden fields with radio buttons
+            txnTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        txnTypeHidden.value = this.value;
+                        updateFormVisibility();
+                    }
+                });
+            });
+
+            paymentModeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        paymentModeHidden.value = this.value;
+                        updateFormVisibility();
+                    }
+                });
+            });
+
+            // Update form visibility based on selections
+            function updateFormVisibility() {
+                const txnType = txnTypeHidden.value;
+                const paymentMode = paymentModeHidden.value;
+
+                // Cheque details: show only when payment mode is 'cheque'
+                if (paymentMode === 'cheque') {
+                    chequeSection.classList.remove('hidden');
+                } else {
+                    chequeSection.classList.add('hidden');
+                }
+
+                // Expense Reason & Petrol: show/hide based on transaction type
+                const expenseReason = document.getElementById('txnExpenseReason');
+                const petrolField = document.getElementById('txnPetrol');
+                const expenseRow = expenseReason?.closest('.row');
+                if (expenseRow) {
+                    if (txnType === 'expense') {
+                        expenseRow.style.display = 'flex';
+                    } else {
+                        expenseRow.style.display = 'none';
+                    }
+                }
+
+                // Update amount field mapping
+                updateAmountMapping();
+            }
+
+            // Map the single amount to the appropriate hidden field
+            function updateAmountMapping() {
+                const amount = parseFloat(txnAmount.value) || 0;
+                const paymentMode = paymentModeHidden.value;
+                const txnType = txnTypeHidden.value;
+
+                // Reset all amount fields
+                txnCash.value = '0';
+                txnCheque.value = '0';
+                txnBanked.value = '0';
+                txnExpense.value = '0';
+
+                if (txnType === 'income') {
+                    // Income: amount goes to cash/cheque/banked based on payment mode
+                    if (paymentMode === 'cash') {
+                        txnCash.value = amount.toFixed(2);
+                    } else if (paymentMode === 'cheque') {
+                        txnCheque.value = amount.toFixed(2);
+                    } else if (paymentMode === 'bank') {
+                        txnBanked.value = amount.toFixed(2);
+                    }
+                } else if (txnType === 'expense') {
+                    // Expense: amount goes to expense field, and petrol is separate
+                    txnExpense.value = amount.toFixed(2);
+                    // Also store in cash/cheque/banked based on payment mode for tracking
+                    if (paymentMode === 'cash') {
+                        txnCash.value = amount.toFixed(2);
+                    } else if (paymentMode === 'cheque') {
+                        txnCheque.value = amount.toFixed(2);
+                    } else if (paymentMode === 'bank') {
+                        txnBanked.value = amount.toFixed(2);
+                    }
+                } else if (txnType === 'transfer') {
+                    // Bank Transfer: amount goes to banked
+                    txnBanked.value = amount.toFixed(2);
+                }
+            }
+
+            // Update amount mapping on amount change
+            txnAmount.addEventListener('input', updateAmountMapping);
+
+            // Also update when payment mode or type changes via hidden field sync
+            // The radio change events already call updateFormVisibility which calls updateAmountMapping
+
+            // Override the form submission to ensure data is properly mapped
+            const originalSubmit = document.getElementById('transactionForm').submit;
+            document.getElementById('transactionForm').addEventListener('submit', function(e) {
+                // Ensure amount mapping is up to date
+                updateAmountMapping();
+
+                // Validate amount
+                const amount = parseFloat(txnAmount.value);
+                if (isNaN(amount) || amount <= 0) {
+                    e.preventDefault();
+                    showToast('Please enter a valid amount (greater than 0)', 'warning');
+                    return false;
+                }
+
+                // Validate cheque details if payment mode is cheque
+                if (paymentModeHidden.value === 'cheque') {
+                    const chequeNo = document.getElementById('txnChequeNo').value.trim();
+                    const bank = document.getElementById('txnBank').value.trim();
+                    if (!chequeNo || !bank) {
+                        e.preventDefault();
+                        showToast('Please enter Cheque No. and Bank for cheque payments', 'warning');
+                        return false;
+                    }
+                }
+
+                // Validate route
+                const route = document.getElementById('txnRoute').value;
+                if (!route) {
+                    e.preventDefault();
+                    showToast('Please select a route', 'warning');
+                    return false;
+                }
+
+                return true;
+            });
+
+            // Clear form function
+            document.getElementById('txnClearBtn').addEventListener('click', function() {
+                const form = document.getElementById('transactionForm');
+                form.reset();
+
+                // Reset hidden fields
+                txnCash.value = '0';
+                txnCheque.value = '0';
+                txnBanked.value = '0';
+                txnExpense.value = '0';
+                txnCredit.value = '0';
+                txnAdvance.value = '0';
+
+                // Reset radio buttons to default
+                document.getElementById('txnTypeIncome').checked = true;
+                document.getElementById('paymentCash').checked = true;
+                txnTypeHidden.value = 'income';
+                paymentModeHidden.value = 'cash';
+
+                // Reset cheque section visibility
+                chequeSection.classList.add('hidden');
+
+                // Reset form title
+                document.getElementById('txnFormTitle').textContent = 'Add Transaction';
+                document.getElementById('txnEditId').value = '';
+                document.getElementById('txnUpdateBtn').style.display = 'none';
+                document.getElementById('txnDeleteBtn').style.display = 'none';
+                document.getElementById('txnSaveBtn').textContent = 'Save';
+
+                // Show expense row
+                const expenseRow = document.getElementById('txnExpenseReason')?.closest('.row');
+                if (expenseRow) expenseRow.style.display = 'flex';
+
+                // Set today's date
+                const dateInput = document.getElementById('txnDate');
+                if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+                showToast('Form cleared', 'info');
+            });
+
+            // Set today's date on load
+            const dateInput = document.getElementById('txnDate');
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+            // Initialize visibility
+            updateFormVisibility();
+
+            // ============================================================
+            // EDIT TRANSACTION - Override to handle new form structure
+            // ============================================================
+
+            // Store original edit function
+            const originalEditTransaction = window.editTransaction;
+
+            // Override editTransaction to handle new form
+            window.editTransaction = async function(docId) {
+                const txn = state.transactions.find(t => t.docId === docId);
+                if (!txn) {
+                    showToast('Transaction not found', 'danger');
+                    return;
+                }
+
+                // Call original edit to fill basic fields
+                if (originalEditTransaction) {
+                    await originalEditTransaction(docId);
+                }
+
+                // Now override with our new form logic
+                const amount = (parseFloat(txn.cash) || 0) + (parseFloat(txn.cheque) || 0) + (parseFloat(txn.banked) || 0);
+                const amountField = document.getElementById('txnAmount');
+                if (amountField) amountField.value = amount || 0;
+
+                // Set payment mode
+                let paymentMode = 'cash';
+                if (parseFloat(txn.cheque) > 0) paymentMode = 'cheque';
+                else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0)
+                paymentMode = 'bank';
+
+                document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
+                    radio.checked = (radio.value === paymentMode);
+                });
+                document.getElementById('paymentMode').value = paymentMode;
+
+                // Set transaction type
+                let txnType = 'income';
+                if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
+                    txnType = 'expense';
+                } else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
+                    txnType = 'transfer';
+                }
+                document.querySelectorAll('input[name="txnType"]').forEach(radio => {
+                    radio.checked = (radio.value === txnType);
+                });
+                document.getElementById('txnType').value = txnType;
+
+                // Update visibility
+                updateFormVisibility();
+
+                // Update amount mapping
+                updateAmountMapping();
+
+                // Show cheque details if cheque payment
+                if (paymentMode === 'cheque') {
+                    document.getElementById('chequeDetailsSection').classList.remove('hidden');
+                }
+
+                // Update buttons
+                document.getElementById('txnUpdateBtn').style.display = 'inline-block';
+                document.getElementById('txnDeleteBtn').style.display = 'inline-block';
+                document.getElementById('txnSaveBtn').textContent = 'Update';
+                document.getElementById('txnFormTitle').textContent = 'Edit Transaction';
+                document.getElementById('txnEditId').value = docId;
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            console.log('✅ Transaction form redesigned with conditional logic');
+        });
+    </script>
 
 </body>
 </html>
