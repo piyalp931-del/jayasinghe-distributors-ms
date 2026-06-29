@@ -510,7 +510,7 @@ function populateRouteExpenseFilter() {
 }
 
 // ================================================================
-// ROUTE EXPENSES PAGE (NEW MODULE)
+// ROUTE EXPENSES PAGE
 // ================================================================
 function renderRouteExpenses() {
     const tbody = $('reTableBody');
@@ -525,7 +525,6 @@ function renderRouteExpenses() {
         (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
     );
 
-    // Apply filters
     if (routeFilter && routeFilter.value) {
         expenses = expenses.filter(t => t.route === routeFilter.value);
     }
@@ -543,7 +542,6 @@ function renderRouteExpenses() {
         }
     }
 
-    // Sort by date desc
     expenses.sort((a, b) => (a.date < b.date ? 1 : -1));
 
     const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0), 0);
@@ -864,6 +862,7 @@ window.editTransaction = async function(docId) {
     const txnSaveBtn = $('txnSaveBtn');
     const txnFormTitle = $('txnFormTitle');
     const txnType = $('txnType');
+    const amountField = $('txnAmount');
 
     if (txnDate) txnDate.value = txn.date || '';
     if (txnRoute) txnRoute.value = txn.route || '';
@@ -892,16 +891,42 @@ window.editTransaction = async function(docId) {
     if (txnSaveBtn) txnSaveBtn.textContent = 'Update';
     if (txnFormTitle) txnFormTitle.textContent = 'Edit Transaction';
 
+    // Set amount
+    const amount = (parseFloat(txn.cash) || 0) + (parseFloat(txn.cheque) || 0) + (parseFloat(txn.banked) || 0);
+    if (amountField) amountField.value = amount || 0;
+
+    // Set payment mode
+    let paymentMode = 'cash';
+    if (parseFloat(txn.cheque) > 0) paymentMode = 'cheque';
+    else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) paymentMode = 'bank';
+
+    document.querySelectorAll('input[name="paymentMode"]').forEach(radio => {
+        radio.checked = (radio.value === paymentMode);
+    });
+    const paymentModeHidden = $('paymentMode');
+    if (paymentModeHidden) paymentModeHidden.value = paymentMode;
+
     // Set type
-    if (txnType) {
-        if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
-            txnType.value = 'expense';
-        } else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
-            txnType.value = 'transfer';
-        } else {
-            txnType.value = 'income';
-        }
-        txnType.dispatchEvent(new Event('change'));
+    let txnTypeVal = 'income';
+    if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
+        txnTypeVal = 'expense';
+    } else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
+        txnTypeVal = 'transfer';
+    }
+    document.querySelectorAll('input[name="txnType"]').forEach(radio => {
+        radio.checked = (radio.value === txnTypeVal);
+    });
+    if (txnType) txnType.value = txnTypeVal;
+
+    // Update visibility
+    updateFormVisibility();
+
+    // Show cheque details if cheque payment
+    const chequeSection = $('chequeDetailsSection');
+    if (paymentMode === 'cheque' && chequeSection) {
+        chequeSection.classList.remove('hidden');
+    } else if (chequeSection) {
+        chequeSection.classList.add('hidden');
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -920,6 +945,69 @@ window.deleteTransaction = async function(docId) {
         showToast('Error: ' + err.message, 'danger');
     }
 };
+
+// ================================================================
+// UPDATE FORM VISIBILITY (NEW FORM)
+// ================================================================
+function updateFormVisibility() {
+    const txnTypeHidden = $('txnType');
+    const paymentModeHidden = $('paymentMode');
+    const chequeSection = $('chequeDetailsSection');
+    const txnType = txnTypeHidden ? txnTypeHidden.value : 'income';
+    const paymentMode = paymentModeHidden ? paymentModeHidden.value : 'cash';
+
+    if (paymentMode === 'cheque' && chequeSection) {
+        chequeSection.classList.remove('hidden');
+    } else if (chequeSection) {
+        chequeSection.classList.add('hidden');
+    }
+
+    const expenseReason = $('txnExpenseReason');
+    const petrolField = $('txnPetrol');
+    const expenseRow = expenseReason?.closest('.row');
+    if (expenseRow) {
+        if (txnType === 'expense') {
+            expenseRow.style.display = 'flex';
+        } else {
+            expenseRow.style.display = 'none';
+        }
+    }
+
+    // Map amount to hidden fields
+    updateAmountMapping();
+}
+
+function updateAmountMapping() {
+    const amountField = $('txnAmount');
+    const txnCash = $('txnCash');
+    const txnCheque = $('txnCheque');
+    const txnBanked = $('txnBanked');
+    const txnExpense = $('txnExpense');
+    const paymentModeHidden = $('paymentMode');
+    const txnTypeHidden = $('txnType');
+
+    const amount = parseFloat(amountField?.value) || 0;
+    const paymentMode = paymentModeHidden?.value || 'cash';
+    const txnType = txnTypeHidden?.value || 'income';
+
+    if (txnCash) txnCash.value = '0';
+    if (txnCheque) txnCheque.value = '0';
+    if (txnBanked) txnBanked.value = '0';
+    if (txnExpense) txnExpense.value = '0';
+
+    if (txnType === 'income') {
+        if (paymentMode === 'cash' && txnCash) txnCash.value = amount.toFixed(2);
+        else if (paymentMode === 'cheque' && txnCheque) txnCheque.value = amount.toFixed(2);
+        else if (paymentMode === 'bank' && txnBanked) txnBanked.value = amount.toFixed(2);
+    } else if (txnType === 'expense') {
+        if (txnExpense) txnExpense.value = amount.toFixed(2);
+        if (paymentMode === 'cash' && txnCash) txnCash.value = amount.toFixed(2);
+        else if (paymentMode === 'cheque' && txnCheque) txnCheque.value = amount.toFixed(2);
+        else if (paymentMode === 'bank' && txnBanked) txnBanked.value = amount.toFixed(2);
+    } else if (txnType === 'transfer') {
+        if (txnBanked) txnBanked.value = amount.toFixed(2);
+    }
+}
 
 // ================================================================
 // CUSTOMERS CRUD - WITH ROUTE FILTER
@@ -947,7 +1035,6 @@ function renderCustomers() {
     const countEl = $('custCount');
     if (countEl) countEl.textContent = filtered.length + ' customers';
 
-    // Calculate customer balance
     const balances = {};
     state.transactions.forEach(t => {
         if (t.customer) {
@@ -1391,40 +1478,47 @@ function applyRoleRestrictions() {
 }
 
 // ================================================================
-// TRANSACTION TYPE TOGGLE
+// TRANSACTION TYPE TOGGLE (NEW FORM)
 // ================================================================
 function setupTransactionTypeToggle() {
-    const typeSelect = $('txnType');
-    if (!typeSelect) return;
+    const typeRadios = document.querySelectorAll('input[name="txnType"]');
+    const paymentRadios = document.querySelectorAll('input[name="paymentMode"]');
+    const amountField = $('txnAmount');
 
-    typeSelect.addEventListener('change', function() {
-        const incomeFields = $('incomeFields');
-        const expenseFields = $('expenseFields');
-        const transferFields = $('transferFields');
-
-        if (incomeFields) incomeFields.style.display = 'none';
-        if (expenseFields) expenseFields.style.display = 'none';
-        if (transferFields) transferFields.style.display = 'none';
-
-        if (this.value === 'income') {
-            if (incomeFields) incomeFields.style.display = 'flex';
-        } else if (this.value === 'expense') {
-            if (expenseFields) expenseFields.style.display = 'flex';
-        } else if (this.value === 'transfer') {
-            if (transferFields) transferFields.style.display = 'flex';
-        }
+    typeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                const hidden = $('txnType');
+                if (hidden) hidden.value = this.value;
+                updateFormVisibility();
+                updateAmountMapping();
+            }
+        });
     });
+
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                const hidden = $('paymentMode');
+                if (hidden) hidden.value = this.value;
+                updateFormVisibility();
+                updateAmountMapping();
+            }
+        });
+    });
+
+    if (amountField) {
+        amountField.addEventListener('input', updateAmountMapping);
+    }
 }
 
 // ================================================================
-// CHEQUE NOTIFICATIONS
+// CHEQUE NOTIFICATIONS - FIXED
 // ================================================================
 let notifiedCheques = new Set();
 
 function checkChequeNotifications() {
     const today = new Date();
-    const threeDaysLater = new Date(today);
-    threeDaysLater.setDate(threeDaysLater.getDate() + 3);
 
     const upcomingCheques = state.cheques.filter(c => {
         if (c.status !== 'pending') return false;
@@ -1438,13 +1532,50 @@ function checkChequeNotifications() {
         const daysLeft = Math.ceil((new Date(c.chequeDate) - today) / (1000 * 60 * 60 * 24));
         const message = `Cheque ${c.chequeNo} (${c.customer}) due in ${daysLeft} day(s)`;
 
+        // In-app toast notification
         showToast(`⏰ ${message}`, 'warning');
 
-        if (Notification.permission === 'granted') {
-            new Notification('JDMS - Cheque Reminder', {
-                body: message,
-                icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
-            });
+        // Browser notification - FIXED with proper error handling
+        try {
+            // Check if Notification API is available and permission is granted
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                // Use try-catch to handle any constructor errors
+                try {
+                    new Notification('JDMS - Cheque Reminder', {
+                        body: message,
+                        icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+                    });
+                } catch (notifError) {
+                    // Some browsers (like Safari) may still throw errors
+                    console.warn('Browser notification failed:', notifError.message);
+                    // Fallback: try using ServiceWorkerRegistration if available
+                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            registration.showNotification('JDMS - Cheque Reminder', {
+                                body: message,
+                                icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+                            }).catch(() => {});
+                        }).catch(() => {});
+                    }
+                }
+            } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                // Request permission if not yet decided
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        try {
+                            new Notification('JDMS - Cheque Reminder', {
+                                body: message,
+                                icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
+                            });
+                        } catch (e) {
+                            // Ignore
+                        }
+                    }
+                }).catch(() => {});
+            }
+        } catch (error) {
+            // Silently fail for browser notifications - don't break the app
+            console.debug('Browser notifications not supported:', error.message);
         }
 
         notifiedCheques.add(c.docId + c.chequeNo);
@@ -1670,6 +1801,36 @@ document.addEventListener('DOMContentLoaded', function() {
     if (transactionForm) {
         transactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Validate amount
+            const amountField = $('txnAmount');
+            const amount = parseFloat(amountField?.value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount (greater than 0)', 'warning');
+                return;
+            }
+
+            // Validate route
+            const route = $('txnRoute');
+            if (!route || !route.value) {
+                showToast('Please select a route', 'warning');
+                return;
+            }
+
+            // Validate cheque details if payment mode is cheque
+            const paymentMode = $('paymentMode');
+            if (paymentMode && paymentMode.value === 'cheque') {
+                const chequeNo = $('txnChequeNo');
+                const bank = $('txnBank');
+                if (!chequeNo || !chequeNo.value.trim() || !bank || !bank.value.trim()) {
+                    showToast('Please enter Cheque No. and Bank for cheque payments', 'warning');
+                    return;
+                }
+            }
+
+            // Update amount mapping before submit
+            updateAmountMapping();
+
             const editId = $('txnEditId') ? $('txnEditId').value : '';
             const data = getTransactionFormData();
 
@@ -1697,6 +1858,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (transactionForm) transactionForm.reset();
                 const txnDateEl = $('txnDate');
                 if (txnDateEl) txnDateEl.value = getToday();
+                // Reset form
+                document.getElementById('txnTypeIncome').checked = true;
+                document.getElementById('paymentCash').checked = true;
+                const txnTypeHidden = $('txnType');
+                const paymentModeHidden = $('paymentMode');
+                if (txnTypeHidden) txnTypeHidden.value = 'income';
+                if (paymentModeHidden) paymentModeHidden.value = 'cash';
+                if ($('chequeDetailsSection')) $('chequeDetailsSection').classList.add('hidden');
+                if ($('txnAmount')) $('txnAmount').value = '';
+                // Reset hidden amount fields
+                ['txnCash', 'txnCheque', 'txnBanked', 'txnExpense'].forEach(id => {
+                    const el = $(id);
+                    if (el) el.value = '0';
+                });
                 await loadAllData();
                 renderAll();
                 initDashboard();
@@ -1710,7 +1885,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Clear Buttons ---
     const txnClearBtn = $('txnClearBtn');
     if (txnClearBtn) {
-        txnClearBtn.addEventListener('click', () => {
+        txnClearBtn.addEventListener('click', function() {
             const form = $('transactionForm');
             if (form) form.reset();
             const txnDateEl = $('txnDate');
@@ -1725,20 +1900,43 @@ document.addEventListener('DOMContentLoaded', function() {
             if (deleteBtn) deleteBtn.style.display = 'none';
             if (saveBtn) saveBtn.textContent = 'Save';
             if (formTitle) formTitle.textContent = 'Add Transaction';
+
+            // Reset radio buttons
+            document.getElementById('txnTypeIncome').checked = true;
+            document.getElementById('paymentCash').checked = true;
+            const txnTypeHidden = $('txnType');
+            const paymentModeHidden = $('paymentMode');
+            if (txnTypeHidden) txnTypeHidden.value = 'income';
+            if (paymentModeHidden) paymentModeHidden.value = 'cash';
+
+            // Hide cheque section
+            const chequeSection = $('chequeDetailsSection');
+            if (chequeSection) chequeSection.classList.add('hidden');
+
+            // Reset amount
+            const amountField = $('txnAmount');
+            if (amountField) amountField.value = '';
+
+            // Reset hidden amount fields
+            ['txnCash', 'txnCheque', 'txnBanked', 'txnExpense'].forEach(id => {
+                const el = $(id);
+                if (el) el.value = '0';
+            });
+
             showToast('Form cleared', 'info');
         });
     }
 
     const txnUpdateBtn = $('txnUpdateBtn');
     if (txnUpdateBtn) {
-        txnUpdateBtn.addEventListener('click', () => {
+        txnUpdateBtn.addEventListener('click', function() {
             if (transactionForm) transactionForm.dispatchEvent(new Event('submit'));
         });
     }
 
     const txnDeleteBtn = $('txnDeleteBtn');
     if (txnDeleteBtn) {
-        txnDeleteBtn.addEventListener('click', () => {
+        txnDeleteBtn.addEventListener('click', function() {
             const id = $('txnEditId') ? $('txnEditId').value : '';
             if (id) deleteTransaction(id);
         });
@@ -1750,7 +1948,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const txnRefreshBtn = $('txnRefreshBtn');
     if (txnRefreshBtn) {
-        txnRefreshBtn.addEventListener('click', async () => {
+        txnRefreshBtn.addEventListener('click', async function() {
             await loadAllData();
             renderAll();
             initDashboard();
@@ -1761,7 +1959,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Export Buttons ---
     const txnExportExcel = $('txnExportExcel');
     if (txnExportExcel) {
-        txnExportExcel.addEventListener('click', () => {
+        txnExportExcel.addEventListener('click', function() {
             const data = state.transactions.map(t => ({
                 ID: t.customId || t.id,
                 Date: t.date,
@@ -1786,7 +1984,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const txnExportPDF = $('txnExportPDF');
     if (txnExportPDF) {
-        txnExportPDF.addEventListener('click', () => {
+        txnExportPDF.addEventListener('click', function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('landscape', 'mm', 'a4');
             doc.setFontSize(16);
@@ -1814,7 +2012,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const txnPrintBtn = $('txnPrintBtn');
     if (txnPrintBtn) {
-        txnPrintBtn.addEventListener('click', () => {
+        txnPrintBtn.addEventListener('click', function() {
             window.print();
         });
     }
@@ -1861,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const custClearBtn = $('custClearBtn');
     if (custClearBtn) {
-        custClearBtn.addEventListener('click', () => {
+        custClearBtn.addEventListener('click', function() {
             const form = $('customerForm');
             if (form) form.reset();
             const custEditId = $('custEditId');
@@ -1877,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const custDeleteBtn = $('custDeleteBtn');
     if (custDeleteBtn) {
-        custDeleteBtn.addEventListener('click', () => {
+        custDeleteBtn.addEventListener('click', function() {
             const id = $('custEditId') ? $('custEditId').value : '';
             if (id) deleteCustomer(id);
         });
@@ -1920,7 +2118,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const routeClearBtn = $('routeClearBtn');
     if (routeClearBtn) {
-        routeClearBtn.addEventListener('click', () => {
+        routeClearBtn.addEventListener('click', function() {
             const form = $('routeForm');
             if (form) form.reset();
             const routeEditId = $('routeEditId');
@@ -1931,7 +2129,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const routeRefreshBtn = $('routeRefreshBtn');
     if (routeRefreshBtn) {
-        routeRefreshBtn.addEventListener('click', () => {
+        routeRefreshBtn.addEventListener('click', function() {
             renderRoutes();
             showToast('Routes refreshed!', 'info');
         });
@@ -1984,7 +2182,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const userClearBtn = $('userClearBtn');
     if (userClearBtn) {
-        userClearBtn.addEventListener('click', () => {
+        userClearBtn.addEventListener('click', function() {
             const form = $('userForm');
             if (form) form.reset();
             const userEditId = $('userEditId');
@@ -1997,7 +2195,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const userDeleteBtn = $('userDeleteBtn');
     if (userDeleteBtn) {
-        userDeleteBtn.addEventListener('click', () => {
+        userDeleteBtn.addEventListener('click', function() {
             const id = $('userEditId') ? $('userEditId').value : '';
             if (id) deleteUser(id);
         });
@@ -2056,7 +2254,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (txnRoute && route) txnRoute.value = route;
                 if (txnType) {
                     txnType.value = 'expense';
-                    txnType.dispatchEvent(new Event('change'));
+                    // Also set the radio button
+                    document.querySelectorAll('input[name="txnType"]').forEach(radio => {
+                        radio.checked = (radio.value === 'expense');
+                    });
+                    updateFormVisibility();
                 }
                 const title = $('txnFormTitle');
                 if (title) title.textContent = 'Add Expense' + (route ? ' for ' + route : '');
@@ -2169,7 +2371,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- REPORTS ---
     const reportGenerateBtn = $('reportGenerateBtn');
     if (reportGenerateBtn) {
-        reportGenerateBtn.addEventListener('click', () => {
+        reportGenerateBtn.addEventListener('click', function() {
             const type = $('reportType') ? $('reportType').value : 'daily';
             const month = $('reportMonth') ? $('reportMonth').value : '';
             const year = $('reportYear') ? $('reportYear').value : '';
@@ -2181,7 +2383,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const reportClearBtn = $('reportClearBtn');
     if (reportClearBtn) {
-        reportClearBtn.addEventListener('click', () => {
+        reportClearBtn.addEventListener('click', function() {
             const reportType = $('reportType');
             const reportMonth = $('reportMonth');
             const reportYear = $('reportYear');
@@ -2203,7 +2405,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const reportPrintBtn = $('reportPrintBtn');
     if (reportPrintBtn) {
-        reportPrintBtn.addEventListener('click', () => {
+        reportPrintBtn.addEventListener('click', function() {
             const content = document.querySelector('#reportPrintContent');
             if (!content || !content.innerHTML || content.innerHTML.includes('No data')) {
                 return showToast('Generate a report first', 'warning');
@@ -2228,7 +2430,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const reportExportPDF = $('reportExportPDF');
     if (reportExportPDF) {
-        reportExportPDF.addEventListener('click', () => {
+        reportExportPDF.addEventListener('click', function() {
             const content = document.querySelector('#reportPrintContent');
             if (!content || !content.innerHTML || content.innerHTML.includes('No data')) {
                 return showToast('Generate a report first', 'warning');
@@ -2253,7 +2455,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const reportExportExcel = $('reportExportExcel');
     if (reportExportExcel) {
-        reportExportExcel.addEventListener('click', () => {
+        reportExportExcel.addEventListener('click', function() {
             const rows = qsa('#reportResult table tbody tr');
             if (!rows.length) return showToast('No data to export', 'warning');
             const data = [];
@@ -2283,7 +2485,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const backupExport = $('backupExport');
     if (backupExport) {
-        backupExport.addEventListener('click', async () => {
+        backupExport.addEventListener('click', async function() {
             try {
                 const allData = {
                     transactions: state.transactions,
@@ -2313,7 +2515,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const backupRestore = $('backupRestore');
     if (backupRestore) {
-        backupRestore.addEventListener('click', async () => {
+        backupRestore.addEventListener('click', async function() {
             const fileInput = $('backupFileInput');
             if (!fileInput || !fileInput.files.length) return showToast('Select a JSON backup file', 'warning');
             const file = fileInput.files[0];
@@ -2394,7 +2596,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const settingsClearBtn = $('settingsClearBtn');
     if (settingsClearBtn) {
-        settingsClearBtn.addEventListener('click', () => {
+        settingsClearBtn.addEventListener('click', function() {
             const companyName = $('setCompanyName');
             const currency = $('setCurrency');
             const dateFormat = $('setDateFormat');
@@ -2423,13 +2625,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setTheme(state.darkMode);
 
-    if (themeSwitch) themeSwitch.addEventListener('click', () => setTheme(!state.darkMode));
-    if (themeToggle) themeToggle.addEventListener('click', () => setTheme(!state.darkMode));
+    if (themeSwitch) themeSwitch.addEventListener('click', function() { setTheme(!state.darkMode); });
+    if (themeToggle) themeToggle.addEventListener('click', function() { setTheme(!state.darkMode); });
 
     // --- LOGO ---
     const logoUploadBtn = $('logoUploadBtn');
     if (logoUploadBtn) {
-        logoUploadBtn.addEventListener('click', () => {
+        logoUploadBtn.addEventListener('click', function() {
             const fileInput = $('logoFileInput');
             if (fileInput) fileInput.click();
         });
@@ -2467,7 +2669,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const logoRemoveBtn = $('logoRemoveBtn');
     if (logoRemoveBtn) {
-        logoRemoveBtn.addEventListener('click', async () => {
+        logoRemoveBtn.addEventListener('click', async function() {
             try {
                 await db.collection('settings').doc('app').set({ logoUrl: null }, { merge: true });
                 const preview = $('logoPreview');
@@ -2487,7 +2689,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const clearSampleDataBtn = $('clearSampleDataBtn');
     if (clearSampleDataBtn) {
-        clearSampleDataBtn.addEventListener('click', async () => {
+        clearSampleDataBtn.addEventListener('click', async function() {
             const ok = await showConfirm('Clear All Data', 'This will delete ALL transactions, customers, and routes. Are you sure?');
             if (!ok) return;
 
@@ -2601,12 +2803,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- SIDEBAR NAVIGATION ---
     qsa('.sidebar-nav .nav-item[data-page]').forEach(el => {
-        el.addEventListener('click', () => navigateTo(el.dataset.page));
+        el.addEventListener('click', function() {
+            navigateTo(this.dataset.page);
+        });
     });
 
     const sidebarToggle = $('sidebarToggle');
     if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
+        sidebarToggle.addEventListener('click', function() {
             const sidebar = $('sidebar');
             const overlay = $('sidebarOverlay');
             if (sidebar) sidebar.classList.contains('open') ? closeSidebar() : (sidebar.classList.add('open'), overlay?.classList.add('open'));
@@ -2622,7 +2826,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const topbarLogoutBtn = $('topbarLogoutBtn');
     if (topbarLogoutBtn) {
-        topbarLogoutBtn.addEventListener('click', (e) => {
+        topbarLogoutBtn.addEventListener('click', function(e) {
             e.preventDefault();
             performLogout();
         });
@@ -2634,7 +2838,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- USER PROFILE & SETTINGS ---
     const userProfileBtn = $('userProfileBtn');
     if (userProfileBtn) {
-        userProfileBtn.addEventListener('click', (e) => {
+        userProfileBtn.addEventListener('click', function(e) {
             e.preventDefault();
             navigateTo('profile');
             const dropdown = bootstrap.Dropdown.getInstance($('userDropdownToggle'));
@@ -2644,7 +2848,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const userSettingsBtn = $('userSettingsBtn');
     if (userSettingsBtn) {
-        userSettingsBtn.addEventListener('click', (e) => {
+        userSettingsBtn.addEventListener('click', function(e) {
             e.preventDefault();
             navigateTo('settings');
             const dropdown = bootstrap.Dropdown.getInstance($('userDropdownToggle'));
@@ -2652,11 +2856,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- TRANSACTION TYPE TOGGLE ---
+    // --- TRANSACTION FORM CONDITIONAL LOGIC ---
     setupTransactionTypeToggle();
 
     // --- KEYBOARD SHORTCUTS ---
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 't') {
             e.preventDefault();
             navigateTo('transactions');
@@ -2675,23 +2879,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // --- CHEQUE NOTIFICATIONS ---
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
     }
     setInterval(checkChequeNotifications, 300000);
     setTimeout(checkChequeNotifications, 5000);
 
     // --- Watch for route expenses page activation ---
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(function() {
         const rePage = document.getElementById('page-route-expenses');
         if (rePage && rePage.classList.contains('active')) {
             populateRouteExpenseFilter();
             renderRouteExpenses();
         }
     });
-    document.querySelectorAll('.page-section').forEach(el => {
+    document.querySelectorAll('.page-section').forEach(function(el) {
         observer.observe(el, { attributes: true, attributeFilter: ['class'] });
     });
+
+    // Initialize form visibility
+    updateFormVisibility();
 
 });
 
