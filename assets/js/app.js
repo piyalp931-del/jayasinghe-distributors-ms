@@ -403,11 +403,16 @@ function renderAll() {
     populateSelects();
     populateCustomerRouteSelects();
     populateReportRouteSelect();
+    populateRouteExpenseFilter();
     updateChequeBadge();
     updateTopbarStats();
     updateLastUpdated();
     checkChequeNotifications();
-    loadRouteExpenses();
+    // Check if route expenses page is active, if so render it
+    const rePage = document.getElementById('page-route-expenses');
+    if (rePage && rePage.classList.contains('active')) {
+        renderRouteExpenses();
+    }
 }
 
 // ================================================================
@@ -448,7 +453,7 @@ function populateSelects() {
 }
 
 function populateCustomerRouteSelects() {
-    const selects = ['custRoute', 'custRouteFilter', 'txnRouteFilter', 'routeExpenseRoute'];
+    const selects = ['custRoute', 'custRouteFilter', 'txnRouteFilter'];
     selects.forEach(id => {
         const sel = $(id);
         if (!sel) return;
@@ -486,6 +491,117 @@ function populateReportRouteSelect() {
     if (currentVal && Array.from(reportRouteEl.options).some(o => o.value === currentVal)) {
         reportRouteEl.value = currentVal;
     }
+}
+
+function populateRouteExpenseFilter() {
+    const sel = $('reRouteFilter');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Routes</option>';
+    state.routes.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.name;
+        opt.textContent = r.name;
+        sel.appendChild(opt);
+    });
+    if (current && Array.from(sel.options).some(o => o.value === current)) {
+        sel.value = current;
+    }
+}
+
+// ================================================================
+// ROUTE EXPENSES PAGE (NEW MODULE)
+// ================================================================
+function renderRouteExpenses() {
+    const tbody = $('reTableBody');
+    if (!tbody) return;
+
+    const routeFilter = $('reRouteFilter');
+    const dateFrom = $('reDateFrom');
+    const dateTo = $('reDateTo');
+    const typeFilter = $('reTypeFilter');
+
+    let expenses = state.transactions.filter(t =>
+        (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
+    );
+
+    // Apply filters
+    if (routeFilter && routeFilter.value) {
+        expenses = expenses.filter(t => t.route === routeFilter.value);
+    }
+    if (dateFrom && dateFrom.value) {
+        expenses = expenses.filter(t => t.date >= dateFrom.value);
+    }
+    if (dateTo && dateTo.value) {
+        expenses = expenses.filter(t => t.date <= dateTo.value);
+    }
+    if (typeFilter && typeFilter.value !== 'all') {
+        if (typeFilter.value === 'expense') {
+            expenses = expenses.filter(t => parseFloat(t.expense) > 0);
+        } else if (typeFilter.value === 'petrol') {
+            expenses = expenses.filter(t => parseFloat(t.petrol) > 0);
+        }
+    }
+
+    // Sort by date desc
+    expenses.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0), 0);
+    const totalPetrol = expenses.reduce((s, t) => s + (parseFloat(t.petrol) || 0), 0);
+    const totalCost = totalExpense + totalPetrol;
+    const count = expenses.length;
+
+    const totalExpenseEl = $('reTotalExpense');
+    const totalPetrolEl = $('reTotalPetrol');
+    const totalCostEl = $('reTotalCost');
+    const countEl = $('reCount');
+    const totalAmountEl = $('reTotalAmount');
+    const tableTitleEl = $('reTableTitle');
+
+    if (totalExpenseEl) totalExpenseEl.textContent = formatCurrency(totalExpense);
+    if (totalPetrolEl) totalPetrolEl.textContent = formatCurrency(totalPetrol);
+    if (totalCostEl) totalCostEl.textContent = formatCurrency(totalCost);
+    if (countEl) countEl.textContent = count;
+    if (totalAmountEl) totalAmountEl.textContent = 'Total: ' + formatCurrency(totalCost);
+    if (tableTitleEl) tableTitleEl.textContent = count + ' Expense Records';
+
+    if (!expenses.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No expenses found</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = expenses.slice(0, 50).map(t => {
+        let type = '';
+        let badge = '';
+        const expAmt = parseFloat(t.expense) || 0;
+        const petAmt = parseFloat(t.petrol) || 0;
+        if (expAmt > 0 && petAmt > 0) {
+            type = 'Both';
+            badge = 'warning';
+        } else if (expAmt > 0) {
+            type = 'Expense';
+            badge = 'danger';
+        } else if (petAmt > 0) {
+            type = 'Petrol';
+            badge = 'info';
+        }
+        const amount = expAmt + petAmt;
+        return `
+                <tr>
+                    <td>${formatDate(t.date)}</td>
+                    <td>${t.route || '-'}</td>
+                    <td><span class="badge bg-${badge}">${type}</span></td>
+                    <td>${formatCurrency(amount)}</td>
+                    <td>${t.expenseReason || '-'}</td>
+                    <td>${t.driver || '-'}</td>
+                    <td>${t.notes || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+    }).join('');
 }
 
 // ================================================================
@@ -987,7 +1103,7 @@ window.updateChequeStatus = async function(docId, newStatus) {
 };
 
 // ================================================================
-// ROUTES & EXPENSES
+// ROUTES (Only Routes List)
 // ================================================================
 function renderRoutes() {
     const tbody = $('routeTableBody');
@@ -996,24 +1112,17 @@ function renderRoutes() {
     if (countEl) countEl.textContent = state.routes.length + ' routes';
 
     if (!state.routes.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No routes</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No routes</td></tr>`;
         return;
     }
 
     tbody.innerHTML = state.routes.map((r, i) => {
         const customerCount = state.customers.filter(c => c.route === r.name).length;
-        const expenses = state.transactions.filter(t =>
-            t.route === r.name &&
-            (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
-        );
-        const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
-
         return `
             <tr>
                 <td>${i+1}</td>
                 <td><strong>${r.name}</strong></td>
                 <td>${customerCount}</td>
-                <td>${formatCurrency(totalExpense)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
@@ -1034,72 +1143,6 @@ window.deleteRoute = async function(docId) {
         showToast('Error: ' + err.message, 'danger');
     }
 };
-
-// ================================================================
-// ROUTE EXPENSES MODULE
-// ================================================================
-function loadRouteExpenses() {
-    const routeSelect = $('routeExpenseRoute');
-    const resultDiv = $('routeExpenseResult');
-    if (!routeSelect || !resultDiv) return;
-
-    const routeName = routeSelect.value;
-    if (!routeName) {
-        resultDiv.innerHTML = `<div class="empty-state"><i class="bi bi-receipt"></i><p>Select a route to view expenses</p></div>`;
-        return;
-    }
-
-    const expenses = state.transactions.filter(t =>
-        t.route === routeName &&
-        (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
-    );
-
-    if (!expenses.length) {
-        resultDiv.innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No expenses for this route</p></div>`;
-        return;
-    }
-
-    const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0) + (parseFloat(t.petrol) || 0), 0);
-
-    let html = `
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <span><strong>${routeName}</strong> - ${expenses.length} expenses</span>
-            <span class="fw-bold text-danger">Total: ${formatCurrency(totalExpense)}</span>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-sm">
-                <thead><tr>
-                    <th>Date</th>
-                    <th>Expense</th>
-                    <th>Petrol</th>
-                    <th>Reason</th>
-                    <th>Driver</th>
-                    <th>Notes</th>
-                    <th>Actions</th>
-                </tr></thead>
-                <tbody>
-    `;
-
-    expenses.slice(0, 50).forEach(t => {
-        html += `
-            <tr>
-                <td>${formatDate(t.date)}</td>
-                <td>${formatCurrency(t.expense)}</td>
-                <td>${formatCurrency(t.petrol)}</td>
-                <td>${t.expenseReason || '-'}</td>
-                <td>${t.driver || '-'}</td>
-                <td>${t.notes || '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
-                </td>
-            </tr>
-        `;
-    });
-
-    html += `</tbody></table></div>`;
-    resultDiv.innerHTML = html;
-}
 
 // ================================================================
 // USERS
@@ -1179,16 +1222,18 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         data = data.filter(t => t.date && t.date.startsWith(month));
     } else if (type === 'yearly' && year) {
         data = data.filter(t => t.date && t.date.startsWith(year));
-    } else if (type === 'expense') {
-        data = data.filter(t => parseFloat(t.expense) > 0);
-    } else if (type === 'petrol') {
-        data = data.filter(t => parseFloat(t.petrol) > 0);
+    } else if (type === 'cash') {
+        data = data.filter(t => parseFloat(t.cash) > 0);
+    } else if (type === 'cheque') {
+        data = data.filter(t => parseFloat(t.cheque) > 0);
     } else if (type === 'credit') {
         data = data.filter(t => parseFloat(t.credit) > 0);
     } else if (type === 'bank') {
         data = data.filter(t => parseFloat(t.banked) > 0);
-    } else if (type === 'cheque') {
-        data = data.filter(t => parseFloat(t.cheque) > 0);
+    } else if (type === 'expense') {
+        data = data.filter(t => parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0);
+    } else if (type === 'petrol') {
+        data = data.filter(t => parseFloat(t.petrol) > 0);
     }
 
     if (routeCustomerValue) {
@@ -1220,7 +1265,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     else if (type === 'monthly') filterDesc = month || '';
     else if (type === 'yearly') filterDesc = year || '';
     else if (type === 'route' || type === 'customer') filterDesc = routeCustomerValue ? routeCustomerValue.split(':')[1] : '';
-    else filterDesc = '';
+    else filterDesc = type.charAt(0).toUpperCase() + type.slice(1);
 
     if (routeCustomerValue) {
         const label = routeCustomerValue.split(':')[1] || '';
@@ -1228,7 +1273,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     }
 
     let html = `
-            <div class="table-responsive">
+            <div class="table-responsive" id="reportPrintContent">
                 <h6 class="fw-semibold mb-3">Report: ${type.toUpperCase()} ${filterDesc ? '('+filterDesc+')' : ''}</h6>
                 <p class="text-muted small">${data.length} transactions found</p>
                 <table class="table table-bordered">
@@ -1249,7 +1294,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                 <hr />
                 <div style="max-height:300px;overflow-y:auto;">
                     <table class="table table-sm">
-                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Expense</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Expense</th><th>Petrol</th><th>Banked</th></tr></thead>
                         <tbody>
                             ${data.slice(0,50).map(t => `<tr>
                                 <td>${formatDate(t.date)}</td>
@@ -1258,6 +1303,8 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                                 <td>${formatCurrency(t.cheque)}</td>
                                 <td>${formatCurrency(t.credit)}</td>
                                 <td>${formatCurrency(t.expense)}</td>
+                                <td>${formatCurrency(t.petrol)}</td>
+                                <td>${formatCurrency(t.banked)}</td>
                             </tr>`).join('')}
                         </tbody>
                     </table>
@@ -1284,7 +1331,8 @@ function navigateTo(page) {
         transactions: 'Transactions',
         customers: 'Customers',
         cheques: 'Cheque Management',
-        routes: 'Routes & Expenses',
+        routes: 'Routes',
+        'route-expenses': 'Route Expenses',
         reports: 'Reports',
         profile: 'Profile',
         users: 'Users',
@@ -1300,6 +1348,11 @@ function navigateTo(page) {
     if (page === 'dashboard') initDashboard();
     if (page === 'transactions') renderTransactions();
     if (page === 'cheques') renderCheques();
+    if (page === 'routes') renderRoutes();
+    if (page === 'route-expenses') {
+        populateRouteExpenseFilter();
+        renderRouteExpenses();
+    }
     if (page === 'profile' && state.currentUser) {
         updateProfilePage(state.currentUser, state.currentUser.email.split('@')[0] || 'User');
     }
@@ -1311,10 +1364,6 @@ function navigateTo(page) {
         if (reportYear) reportYear.value = new Date().getFullYear();
         if (reportDate) reportDate.value = getToday();
         populateReportRouteSelect();
-    }
-    if (page === 'routes') {
-        populateCustomerRouteSelects();
-        loadRouteExpenses();
     }
 }
 window.navigateTo = navigateTo;
@@ -1431,7 +1480,6 @@ async function generateSampleData() {
         ];
         const sampleChequeNos = ['CHQ-001', 'CHQ-002', 'CHQ-003', 'CHQ-004', 'CHQ-005'];
 
-        // Assign customers to routes
         const customerRouteMap = {};
         sampleCustomers.forEach((cust, idx) => {
             customerRouteMap[cust] = sampleRoutes[idx % sampleRoutes.length];
@@ -1835,7 +1883,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Customer Route Filter
     const custRouteFilter = $('custRouteFilter');
     if (custRouteFilter) {
         custRouteFilter.addEventListener('change', renderCustomers);
@@ -1882,39 +1929,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- ROUTE EXPENSES ---
-    const routeExpenseLoadBtn = $('routeExpenseLoadBtn');
-    if (routeExpenseLoadBtn) {
-        routeExpenseLoadBtn.addEventListener('click', loadRouteExpenses);
-    }
-
-    const routeExpenseRoute = $('routeExpenseRoute');
-    if (routeExpenseRoute) {
-        routeExpenseRoute.addEventListener('change', function() {
-            if (this.value) loadRouteExpenses();
-        });
-    }
-
-    const routeExpenseAddBtn = $('routeExpenseAddBtn');
-    if (routeExpenseAddBtn) {
-        routeExpenseAddBtn.addEventListener('click', function() {
-            const routeSelect = $('routeExpenseRoute');
-            if (!routeSelect || !routeSelect.value) {
-                showToast('Please select a route first', 'warning');
-                return;
-            }
-            navigateTo('transactions');
-            setTimeout(() => {
-                const route = $('txnRoute');
-                const type = $('txnType');
-                if (route) route.value = routeSelect.value;
-                if (type) type.value = 'expense';
-                if (type) type.dispatchEvent(new Event('change'));
-                const expenseField = $('txnExpense');
-                if (expenseField) expenseField.focus();
-                const title = $('txnFormTitle');
-                if (title) title.textContent = 'Add Expense for ' + routeSelect.value;
-            }, 300);
+    const routeRefreshBtn = $('routeRefreshBtn');
+    if (routeRefreshBtn) {
+        routeRefreshBtn.addEventListener('click', () => {
+            renderRoutes();
+            showToast('Routes refreshed!', 'info');
         });
     }
 
@@ -2000,6 +2019,153 @@ document.addEventListener('DOMContentLoaded', function() {
         txnRouteFilter.addEventListener('change', renderTransactions);
     }
 
+    // --- ROUTE EXPENSES PAGE EVENTS ---
+    const reFilterBtn = $('reFilterBtn');
+    if (reFilterBtn) reFilterBtn.addEventListener('click', renderRouteExpenses);
+
+    const reRefreshBtn = $('reRefreshBtn');
+    if (reRefreshBtn) reRefreshBtn.addEventListener('click', function() {
+        renderRouteExpenses();
+        showToast('Expenses refreshed!', 'info');
+    });
+
+    const reClearFilterBtn = $('reClearFilterBtn');
+    if (reClearFilterBtn) {
+        reClearFilterBtn.addEventListener('click', function() {
+            const routeFilter = $('reRouteFilter');
+            const dateFrom = $('reDateFrom');
+            const dateTo = $('reDateTo');
+            const typeFilter = $('reTypeFilter');
+            if (routeFilter) routeFilter.value = '';
+            if (dateFrom) dateFrom.value = '';
+            if (dateTo) dateTo.value = '';
+            if (typeFilter) typeFilter.value = 'all';
+            renderRouteExpenses();
+            showToast('Filters cleared', 'info');
+        });
+    }
+
+    const reAddExpenseBtn = $('reAddExpenseBtn');
+    if (reAddExpenseBtn) {
+        reAddExpenseBtn.addEventListener('click', function() {
+            const route = $('reRouteFilter') ? $('reRouteFilter').value : '';
+            navigateTo('transactions');
+            setTimeout(() => {
+                const txnRoute = $('txnRoute');
+                const txnType = $('txnType');
+                if (txnRoute && route) txnRoute.value = route;
+                if (txnType) {
+                    txnType.value = 'expense';
+                    txnType.dispatchEvent(new Event('change'));
+                }
+                const title = $('txnFormTitle');
+                if (title) title.textContent = 'Add Expense' + (route ? ' for ' + route : '');
+                const expenseField = $('txnExpense');
+                if (expenseField) expenseField.focus();
+            }, 300);
+        });
+    }
+
+    // Export Excel for Route Expenses
+    const reExportExcel = $('reExportExcel');
+    if (reExportExcel) {
+        reExportExcel.addEventListener('click', function() {
+            const rows = document.querySelectorAll('#reTableBody tr');
+            if (!rows.length || rows[0].textContent.includes('No expenses')) {
+                return showToast('No data to export', 'warning');
+            }
+            const data = [];
+            const headers = ['Date', 'Route', 'Type', 'Amount', 'Reason', 'Driver', 'Notes'];
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 7) {
+                    data.push({
+                        [headers[0]]: cells[0].textContent.trim(),
+                        [headers[1]]: cells[1].textContent.trim(),
+                        [headers[2]]: cells[2].textContent.trim(),
+                        [headers[3]]: cells[3].textContent.trim(),
+                        [headers[4]]: cells[4].textContent.trim(),
+                        [headers[5]]: cells[5].textContent.trim(),
+                        [headers[6]]: cells[6].textContent.trim()
+                    });
+                }
+            });
+            if (data.length === 0) return showToast('No data to export', 'warning');
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+            XLSX.writeFile(wb, `Expenses_${getToday()}.xlsx`);
+            showToast('Excel exported!');
+        });
+    }
+
+    // Export PDF for Route Expenses
+    const reExportPDF = $('reExportPDF');
+    if (reExportPDF) {
+        reExportPDF.addEventListener('click', function() {
+            const content = document.querySelector('#reTableBody');
+            if (!content || content.innerHTML.includes('No expenses')) {
+                return showToast('No data to export', 'warning');
+            }
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(`
+                        <html><head><title>Expenses Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+                        <style>body{padding:40px;}</style>
+                        </head><body>
+                        <h4>Route Expenses Report</h4>
+                        <p>Generated: ${new Date().toLocaleString()}</p>
+                        <table class="table table-bordered">
+                            <thead><tr><th>Date</th><th>Route</th><th>Type</th><th>Amount</th><th>Reason</th><th>Driver</th><th>Notes</th></tr></thead>
+                            <tbody>${document.querySelector('#reTableBody').innerHTML}</tbody>
+                        </table>
+                        <p><strong>Total: ${document.getElementById('reTotalAmount')?.textContent || 'Rs. 0.00'}</strong></p>
+                        <p><strong>Total Expense: ${document.getElementById('reTotalExpense')?.textContent || 'Rs. 0.00'}</strong></p>
+                        <p><strong>Total Petrol: ${document.getElementById('reTotalPetrol')?.textContent || 'Rs. 0.00'}</strong></p>
+                        <script>
+                            setTimeout(() => window.print(), 500);
+                        <\/script>
+                        </body></html>
+                    `);
+                win.document.close();
+            }
+            showToast('PDF exported!');
+        });
+    }
+
+    // Print Route Expenses
+    const rePrintBtn = $('rePrintBtn');
+    if (rePrintBtn) {
+        rePrintBtn.addEventListener('click', function() {
+            const content = document.querySelector('#reTableBody');
+            if (!content || content.innerHTML.includes('No expenses')) {
+                return showToast('No data to print', 'warning');
+            }
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(`
+                        <html><head><title>Expenses Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+                        <style>body{padding:40px;}</style>
+                        </head><body>
+                        <h4>Route Expenses Report</h4>
+                        <p>Generated: ${new Date().toLocaleString()}</p>
+                        <table class="table table-bordered">
+                            <thead><tr><th>Date</th><th>Route</th><th>Type</th><th>Amount</th><th>Reason</th><th>Driver</th><th>Notes</th></tr></thead>
+                            <tbody>${document.querySelector('#reTableBody').innerHTML}</tbody>
+                        </table>
+                        <p><strong>Total: ${document.getElementById('reTotalAmount')?.textContent || 'Rs. 0.00'}</strong></p>
+                        <script>
+                            setTimeout(() => window.print(), 500);
+                        <\/script>
+                        </body></html>
+                    `);
+                win.document.close();
+            }
+        });
+    }
+
     // --- REPORTS ---
     const reportGenerateBtn = $('reportGenerateBtn');
     if (reportGenerateBtn) {
@@ -2038,23 +2204,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportPrintBtn = $('reportPrintBtn');
     if (reportPrintBtn) {
         reportPrintBtn.addEventListener('click', () => {
-            const content = $('reportResult') ? $('reportResult').innerHTML : '';
-            if (content.includes('No data') || !content) {
+            const content = document.querySelector('#reportPrintContent');
+            if (!content || !content.innerHTML || content.innerHTML.includes('No data')) {
                 return showToast('Generate a report first', 'warning');
             }
             const win = window.open('', '_blank');
             if (win) {
                 win.document.write(`
-                    <html><head><title>Report</title>
-                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-                    <style>body{padding:40px;}</style>
-                    </head><body>
-                    <div class="container">${content}</div>
-                    <script>
-                        setTimeout(() => window.print(), 500);
-                    <\/script>
-                    </body></html>
-                `);
+                        <html><head><title>Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+                        <style>body{padding:40px;}</style>
+                        </head><body>
+                        <div class="container">${content.innerHTML}</div>
+                        <script>
+                            setTimeout(() => window.print(), 500);
+                        <\/script>
+                        </body></html>
+                    `);
                 win.document.close();
             }
         });
@@ -2063,23 +2229,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportExportPDF = $('reportExportPDF');
     if (reportExportPDF) {
         reportExportPDF.addEventListener('click', () => {
-            const content = $('reportResult') ? $('reportResult').innerHTML : '';
-            if (content.includes('No data') || !content) {
+            const content = document.querySelector('#reportPrintContent');
+            if (!content || !content.innerHTML || content.innerHTML.includes('No data')) {
                 return showToast('Generate a report first', 'warning');
             }
             const win = window.open('', '_blank');
             if (win) {
                 win.document.write(`
-                    <html><head><title>Report</title>
-                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-                    <style>body{padding:40px;}</style>
-                    </head><body>
-                    <div class="container">${content}</div>
-                    <script>
-                        setTimeout(() => window.print(), 500);
-                    <\/script>
-                    </body></html>
-                `);
+                        <html><head><title>Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+                        <style>body{padding:40px;}</style>
+                        </head><body>
+                        <div class="container">${content.innerHTML}</div>
+                        <script>
+                            setTimeout(() => window.print(), 500);
+                        <\/script>
+                        </body></html>
+                    `);
                 win.document.close();
             }
         });
@@ -2514,6 +2680,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     setInterval(checkChequeNotifications, 300000);
     setTimeout(checkChequeNotifications, 5000);
+
+    // --- Watch for route expenses page activation ---
+    const observer = new MutationObserver(() => {
+        const rePage = document.getElementById('page-route-expenses');
+        if (rePage && rePage.classList.contains('active')) {
+            populateRouteExpenseFilter();
+            renderRouteExpenses();
+        }
+    });
+    document.querySelectorAll('.page-section').forEach(el => {
+        observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+
 });
 
 // ================================================================
@@ -2521,8 +2700,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 initialized (Full Version)');
+console.log('🚀 JDMS v2.0 - Full Complete with Route Expenses');
 console.log('📦 Jayasinghe Distributors Management System');
-console.log('🔷 Blue & Gold Theme');
+console.log('🔷 Features: Routes, Route Expenses (with filters), Reports, Cheques, Customers');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
-console.log('✅ Features: Customer-Route, Route Expenses, Tabs, Notifications');
