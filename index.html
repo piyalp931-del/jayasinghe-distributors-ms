@@ -34,6 +34,58 @@
     <link rel="stylesheet" href="style.css" />
 
     <style>
+        /* Additional custom styles for new features */
+
+        /* Transaction tabs */
+        .btn-group .btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .btn-group .btn.active:hover {
+            background: var(--primary-light);
+            color: #fff;
+        }
+
+        /* Route expense module */
+        #routeExpenseResult .table-responsive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Customer balance badge */
+        .customer-balance {
+            font-weight: 600;
+        }
+
+        /* Notification toast styling */
+        .toast-container .toast {
+            min-width: 300px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Badge for route in customer list */
+        .badge.bg-info {
+            background: #0ea5e9 !important;
+            color: #fff;
+        }
+
+        /* Responsive table */
+        @media (max-width: 768px) {
+            .table-wrapper .table-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn-group {
+                flex-wrap: wrap;
+            }
+            .btn-group .btn {
+                font-size: 12px;
+                padding: 4px 10px;
+            }
+        }
+
         /* User dropdown styles */
         .user-dropdown-toggle {
             background: none;
@@ -249,6 +301,14 @@
         .report-date-group.visible {
             display: block;
         }
+
+        /* Route expense row hover */
+        #routeExpenseResult .table tbody tr:hover {
+            background: rgba(0, 0, 0, 0.03);
+        }
+        [data-theme="dark"] #routeExpenseResult .table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
     </style>
 </head>
 <body>
@@ -309,7 +369,7 @@
                     <span class="badge-nav" id="cheqBadge">0</span>
                 </button>
                 <button class="nav-item" data-page="routes">
-                    <i class="bi bi-diagram-2"></i> Routes
+                    <i class="bi bi-diagram-2"></i> Routes & Expenses
                 </button>
 
                 <div class="nav-label">Reports</div>
@@ -526,17 +586,22 @@
                                     </select>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Delivery Date</label>
-                                    <input type="date" class="form-control" id="txnDeliveryDate" />
-                                </div>
-                                <div class="col-md-3">
                                     <label class="form-label">Customer</label>
                                     <select class="form-select" id="txnCustomer">
                                         <option value="">Select Customer</option>
                                     </select>
                                 </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Transaction Type</label>
+                                    <select class="form-select" id="txnType">
+                                        <option value="income">Income (Cash/Cheque)</option>
+                                        <option value="expense">Expense</option>
+                                        <option value="transfer">Bank Transfer</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="row g-3 mt-1">
+                            <!-- Income Fields -->
+                            <div class="row g-3 mt-1" id="incomeFields">
                                 <div class="col-md-2">
                                     <label class="form-label">Cash</label>
                                     <input type="number" step="0.01" class="form-control" id="txnCash" placeholder="0.00" />
@@ -561,8 +626,6 @@
                                     <label class="form-label">Cheque Date</label>
                                     <input type="date" class="form-control" id="txnChequeDate" />
                                 </div>
-                            </div>
-                            <div class="row g-3 mt-1">
                                 <div class="col-md-2">
                                     <label class="form-label">Credit</label>
                                     <input type="number" step="0.01" class="form-control" id="txnCredit" placeholder="0.00" />
@@ -571,37 +634,52 @@
                                     <label class="form-label">Advance</label>
                                     <input type="number" step="0.01" class="form-control" id="txnAdvance" placeholder="0.00" />
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">Expense</label>
+                            </div>
+                            <!-- Expense Fields -->
+                            <div class="row g-3 mt-1" id="expenseFields" style="display:none;">
+                                <div class="col-md-3">
+                                    <label class="form-label">Expense Amount</label>
                                     <input type="number" step="0.01" class="form-control" id="txnExpense" placeholder="0.00" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label">Expense Reason</label>
                                     <input type="text" class="form-control" id="txnExpenseReason" placeholder="Reason" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label">Petrol</label>
                                     <input type="number" step="0.01" class="form-control" id="txnPetrol" placeholder="0.00" />
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label">KM</label>
                                     <input type="text" class="form-control" id="txnKM" placeholder="KM reading" />
                                 </div>
                             </div>
-                            <div class="row g-3 mt-1">
-                                <div class="col-md-3">
-                                    <label class="form-label">Banked</label>
+                            <!-- Transfer Fields -->
+                            <div class="row g-3 mt-1" id="transferFields" style="display:none;">
+                                <div class="col-md-4">
+                                    <label class="form-label">Bank Transfer Amount</label>
                                     <input type="number" step="0.01" class="form-control" id="txnBanked" placeholder="0.00" />
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Primary</label>
-                                    <input type="text" class="form-control" id="txnPrimary" placeholder="Primary contact" />
+                                <div class="col-md-4">
+                                    <label class="form-label">Bank Name</label>
+                                    <input type="text" class="form-control" id="txnTransferBank" placeholder="Bank name" />
                                 </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Reference</label>
+                                    <input type="text" class="form-control" id="txnTransferRef" placeholder="Reference" />
+                                </div>
+                            </div>
+                            <!-- Common Fields -->
+                            <div class="row g-3 mt-1">
                                 <div class="col-md-3">
                                     <label class="form-label">Driver</label>
                                     <input type="text" class="form-control" id="txnDriver" placeholder="Driver name" />
                                 </div>
                                 <div class="col-md-3">
+                                    <label class="form-label">Primary</label>
+                                    <input type="text" class="form-control" id="txnPrimary" placeholder="Primary contact" />
+                                </div>
+                                <div class="col-md-6">
                                     <label class="form-label">Notes</label>
                                     <input type="text" class="form-control" id="txnNotes" placeholder="Notes" />
                                 </div>
@@ -614,16 +692,25 @@
                                 <button type="button" class="btn btn-outline-success ms-auto" id="txnExportExcel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                                 <button type="button" class="btn btn-outline-danger" id="txnExportPDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                                 <button type="button" class="btn btn-outline-secondary" id="txnPrintBtn"><i class="bi bi-printer"></i> Print</button>
-                                <button type="button" class="btn btn-outline-info" id="txnViewReportBtn"><i class="bi bi-eye"></i> View Report</button>
                             </div>
                         </form>
                     </div>
 
+                    <!-- Transactions Table with Tabs -->
                     <div class="table-wrapper">
                         <div class="table-header">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <span class="fw-semibold" id="txnCount">0 transactions</span>
-                                <button class="btn btn-sm btn-outline-info" id="txnRefreshBtn"><i class="bi bi-arrow-clockwise"></i></button>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary active" data-tab="all">All</button>
+                                    <button class="btn btn-sm btn-outline-primary" data-tab="cash">Cash</button>
+                                    <button class="btn btn-sm btn-outline-primary" data-tab="cheque">Cheque</button>
+                                    <button class="btn btn-sm btn-outline-primary" data-tab="transfer">Transfer</button>
+                                    <button class="btn btn-sm btn-outline-primary" data-tab="expense">Expenses</button>
+                                </div>
+                                <select class="form-select form-select-sm" id="txnRouteFilter" style="width:auto;">
+                                    <option value="">All Routes</option>
+                                </select>
                             </div>
                             <div class="search-box">
                                 <i class="bi bi-search"></i>
@@ -636,17 +723,19 @@
                                     <tr>
                                         <th>ID</th>
                                         <th>Date</th>
+                                        <th>Type</th>
                                         <th>Route</th>
                                         <th>Customer</th>
                                         <th>Cash</th>
                                         <th>Cheque</th>
                                         <th>Credit</th>
                                         <th>Banked</th>
+                                        <th>Expense</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="txnTableBody">
-                                    <tr><td colspan="9" class="text-center text-muted py-4">No transactions found</td></tr>
+                                    <tr><td colspan="11" class="text-center text-muted py-4">No transactions found</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -669,6 +758,12 @@
                                     <input type="text" class="form-control" id="custName" placeholder="Customer name" required />
                                 </div>
                                 <div class="col-md-3">
+                                    <label class="form-label">Route</label>
+                                    <select class="form-select" id="custRoute">
+                                        <option value="">Select Route</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
                                     <label class="form-label">Phone</label>
                                     <input type="text" class="form-control" id="custPhone" placeholder="Phone number" />
                                 </div>
@@ -676,13 +771,13 @@
                                     <label class="form-label">Email</label>
                                     <input type="email" class="form-control" id="custEmail" placeholder="Email" />
                                 </div>
-                                <div class="col-md-3">
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-4">
                                     <label class="form-label">Credit Limit</label>
                                     <input type="number" step="0.01" class="form-control" id="custCreditLimit" placeholder="0.00" />
                                 </div>
-                            </div>
-                            <div class="row g-3 mt-1">
-                                <div class="col-md-12">
+                                <div class="col-md-8">
                                     <label class="form-label">Address</label>
                                     <input type="text" class="form-control" id="custAddress" placeholder="Address" />
                                 </div>
@@ -695,10 +790,14 @@
                         </form>
                     </div>
 
+                    <!-- Customer Table with Route Filter -->
                     <div class="table-wrapper">
                         <div class="table-header">
                             <div class="d-flex align-items-center gap-3 flex-wrap">
                                 <span class="fw-semibold" id="custCount">0 customers</span>
+                                <select class="form-select form-select-sm" id="custRouteFilter" style="width:auto;">
+                                    <option value="">All Routes</option>
+                                </select>
                             </div>
                             <div class="search-box">
                                 <i class="bi bi-search"></i>
@@ -710,6 +809,7 @@
                                 <thead>
                                     <tr>
                                         <th>Name</th>
+                                        <th>Route</th>
                                         <th>Phone</th>
                                         <th>Email</th>
                                         <th>Credit Limit</th>
@@ -718,7 +818,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="custTableBody">
-                                    <tr><td colspan="6" class="text-center text-muted py-4">No customers</td></tr>
+                                    <tr><td colspan="7" class="text-center text-muted py-4">No customers</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -794,7 +894,7 @@
                     </div>
                 </section>
 
-                <!-- ===== ROUTES ===== -->
+                <!-- ===== ROUTES & EXPENSES ===== -->
                 <section class="page-section" id="page-routes">
                     <div class="stat-card mb-4">
                         <h6 class="fw-semibold mb-3">Add / Manage Routes</h6>
@@ -803,7 +903,7 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Route Name</label>
-                                    <input type="text" class="form-control" id="routeName" placeholder="e.g. Colombo North" required />
+                                    <input type="text" class="form-control" id="routeName" placeholder="e.g. Keppitipola" required />
                                 </div>
                             </div>
                             <div class="d-flex gap-2 mt-3 flex-wrap">
@@ -813,15 +913,40 @@
                         </form>
                     </div>
 
+                    <!-- Route Expenses Module -->
+                    <div class="stat-card mb-4">
+                        <h6 class="fw-semibold mb-3"><i class="bi bi-wallet2 me-2"></i>Route Expenses</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Select Route</label>
+                                <select class="form-select" id="routeExpenseRoute">
+                                    <option value="">Select Route</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button class="btn btn-primary" id="routeExpenseLoadBtn"><i class="bi bi-search"></i> Load Expenses</button>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end gap-2">
+                                <button class="btn btn-success" id="routeExpenseAddBtn"><i class="bi bi-plus-circle"></i> Add Expense</button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div id="routeExpenseResult">
+                                <div class="empty-state"><i class="bi bi-receipt"></i><p>Select a route to view expenses</p></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Route List -->
                     <div class="table-wrapper">
                         <div class="table-header">
                             <span class="fw-semibold" id="routeCount">0 routes</span>
                         </div>
                         <div class="table-responsive">
                             <table class="table">
-                                <thead><tr><th>#</th><th>Route Name</th><th>Action</th></tr></thead>
+                                <thead><tr><th>#</th><th>Route Name</th><th>Customers</th><th>Total Expenses</th><th>Action</th></tr></thead>
                                 <tbody id="routeTableBody">
-                                    <tr><td colspan="3" class="text-center text-muted py-4">No routes</td></tr>
+                                    <tr><td colspan="5" class="text-center text-muted py-4">No routes</td></tr>
                                 </tbody>
                             </table>
                         </div>
