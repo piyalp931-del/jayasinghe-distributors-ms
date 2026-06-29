@@ -1,7 +1,8 @@
+```javascript
 // ================================================================
 // assets/js/app.js - Main Application Logic (FULL COMPLETE)
 // Supports Multi-Payment (Cash, Cheque, Bank, Credit) with Edit
-// Route-based Customer Filtering, Balance Tracking
+// Route-based Customer Filtering, Balance Tracking, KM Tracking
 // ================================================================
 
 // ================================================================
@@ -332,7 +333,8 @@ async function loadAllData() {
                 ...data,
                 docId: d.id,
                 customId: data.id || null,
-                id: d.id
+                id: d.id,
+                km: parseFloat(data.km) || 0
             };
         });
 
@@ -417,7 +419,6 @@ function renderAll() {
     if (rePage && rePage.classList.contains('active')) {
         renderRouteExpenses();
     }
-    // Re-apply customer filter if route changes
     const routeSelect = $('txnRoute');
     if (routeSelect) {
         routeSelect.addEventListener('change', function() {
@@ -447,7 +448,6 @@ function populateSelects() {
         }
     });
 
-    // Populate customers initially (all)
     const custSel = $('txnCustomer');
     if (custSel) {
         const current = custSel.value;
@@ -555,7 +555,7 @@ function populateExpenseRouteSelect() {
 }
 
 // ================================================================
-// ROUTE EXPENSES
+// ROUTE EXPENSES (with KM)
 // ================================================================
 function renderRouteExpenses() {
     const tbody = $('reTableBody');
@@ -591,11 +591,13 @@ function renderRouteExpenses() {
     const totalExpense = expenses.reduce((s, t) => s + (parseFloat(t.expense) || 0), 0);
     const totalPetrol = expenses.reduce((s, t) => s + (parseFloat(t.petrol) || 0), 0);
     const totalCost = totalExpense + totalPetrol;
+    const totalKM = expenses.reduce((s, t) => s + (parseFloat(t.km) || 0), 0);
     const count = expenses.length;
 
     const totalExpenseEl = $('reTotalExpense');
     const totalPetrolEl = $('reTotalPetrol');
     const totalCostEl = $('reTotalCost');
+    const totalKMEl = $('reTotalKM');
     const countEl = $('reCount');
     const totalAmountEl = $('reTotalAmount');
     const tableTitleEl = $('reTableTitle');
@@ -603,12 +605,13 @@ function renderRouteExpenses() {
     if (totalExpenseEl) totalExpenseEl.textContent = formatCurrency(totalExpense);
     if (totalPetrolEl) totalPetrolEl.textContent = formatCurrency(totalPetrol);
     if (totalCostEl) totalCostEl.textContent = formatCurrency(totalCost);
+    if (totalKMEl) totalKMEl.textContent = totalKM.toFixed(1);
     if (countEl) countEl.textContent = count;
     if (totalAmountEl) totalAmountEl.textContent = 'Total: ' + formatCurrency(totalCost);
     if (tableTitleEl) tableTitleEl.textContent = count + ' Expense Records';
 
     if (!expenses.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No expenses found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No expenses found</td></tr>';
         return;
     }
 
@@ -628,6 +631,7 @@ function renderRouteExpenses() {
             badge = 'info';
         }
         const amount = expAmt + petAmt;
+        const km = parseFloat(t.km) || 0;
         return `
                 <tr>
                     <td>${formatDate(t.date)}</td>
@@ -636,6 +640,7 @@ function renderRouteExpenses() {
                     <td>${formatCurrency(amount)}</td>
                     <td>${t.expenseReason || '-'}</td>
                     <td>${t.driver || '-'}</td>
+                    <td>${km > 0 ? `<span class="km-badge">${km.toFixed(1)} km</span>` : '-'}</td>
                     <td>${t.notes || '-'}</td>
                     <td>
                         <button class="btn btn-sm btn-outline-info view-expense-btn me-1" onclick="viewExpenseDetail('${t.docId}')" title="View Details"><i class="bi bi-eye"></i></button>
@@ -671,6 +676,7 @@ window.editExpense = function(docId) {
     document.getElementById('expRoute').value = txn.route || '';
     document.getElementById('expAmount').value = txn.expense || 0;
     document.getElementById('expPetrol').value = txn.petrol || 0;
+    document.getElementById('expKM').value = txn.km || 0;
     document.getElementById('expReason').value = txn.expenseReason || '';
     document.getElementById('expDriver').value = txn.driver || '';
     document.getElementById('expNotes').value = txn.notes || '';
@@ -689,6 +695,7 @@ window.viewExpenseDetail = function(docId) {
     const editBtn = document.getElementById('expenseEditFromModal');
     const expAmt = parseFloat(txn.expense) || 0;
     const petAmt = parseFloat(txn.petrol) || 0;
+    const km = parseFloat(txn.km) || 0;
     const type = (expAmt > 0 && petAmt > 0) ? 'Both' : (expAmt > 0 ? 'Expense' : 'Petrol');
 
     body.innerHTML = `
@@ -721,6 +728,10 @@ window.viewExpenseDetail = function(docId) {
                     <div class="expense-detail-value">${formatCurrency(petAmt)}</div>
                 </div>
                 ` : ''}
+                <div class="col-md-6">
+                    <div class="expense-detail-label">KM</div>
+                    <div class="expense-detail-value">${km > 0 ? km.toFixed(1) + ' km' : '-'}</div>
+                </div>
                 <div class="col-md-6">
                     <div class="expense-detail-label">Reason</div>
                     <div class="expense-detail-value">${txn.expenseReason || '-'}</div>
@@ -822,11 +833,12 @@ function renderRecentTransactions() {
     }
     container.innerHTML = recent.map(t => {
         const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0) + (parseFloat(t.credit) || 0);
+        const km = parseFloat(t.km) || 0;
         return `
             <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color:var(--border)!important;">
                 <div>
                     <div class="fw-semibold" style="font-size:14px;">${t.route || 'N/A'}</div>
-                    <div style="font-size:12px;color:var(--text-muted);">${formatDate(t.date)} · ${t.customer || 'N/A'}</div>
+                    <div style="font-size:12px;color:var(--text-muted);">${formatDate(t.date)} · ${t.customer || 'N/A'} ${km > 0 ? '· ' + km.toFixed(1) + ' km' : ''}</div>
                 </div>
                 <div class="fw-bold" style="font-size:15px;">${formatCurrency(total)}</div>
             </div>
@@ -878,7 +890,7 @@ function renderDashboardChart() {
 }
 
 // ================================================================
-// TRANSACTIONS - Multi-Payment with Edit
+// TRANSACTIONS - Multi-Payment with Edit & KM
 // ================================================================
 let currentTxnTab = 'all';
 
@@ -935,7 +947,7 @@ function renderTransactions() {
 
     if (!filtered.length) {
         tbody.innerHTML =
-            `<tr><td colspan="7" class="text-center text-muted py-4">No transactions found</td></tr>`;
+            `<tr><td colspan="8" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
@@ -947,7 +959,6 @@ function renderTransactions() {
                 return `<span class="payment-badge ${p.mode} me-1">${label} ${formatCurrency(p.amount)}</span>`;
             }).join(' ');
         } else {
-            // Fallback
             const parts = [];
             if (parseFloat(t.cash) > 0) parts.push(
                 `<span class="payment-badge cash me-1">Cash ${formatCurrency(t.cash)}</span>`);
@@ -960,12 +971,14 @@ function renderTransactions() {
             paymentsHtml = parts.join(' ');
         }
         const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0) + (parseFloat(t.credit) || 0);
+        const km = parseFloat(t.km) || 0;
         return `
                 <tr>
                     <td><code style="font-size:12px;">${t.customId || t.id || 'N/A'}</code></td>
                     <td>${formatDate(t.date)}</td>
                     <td>${t.route || '-'}</td>
                     <td>${t.customer || '-'}</td>
+                    <td>${km > 0 ? `<span class="km-badge">${km.toFixed(1)} km</span>` : '-'}</td>
                     <td>${paymentsHtml}</td>
                     <td>${formatCurrency(total)}</td>
                     <td>
@@ -1041,7 +1054,6 @@ function renderPaymentsUI(paymentsArray) {
     if (totalSpan) totalSpan.textContent = formatCurrency(total);
     if (countSpan) countSpan.textContent = currentPayments.length + ' payments';
 
-    // Remove handlers
     container.querySelectorAll('.remove-payment').forEach(btn => {
         btn.addEventListener('click', function() {
             const idx = parseInt(this.dataset.index);
@@ -1051,15 +1063,12 @@ function renderPaymentsUI(paymentsArray) {
         });
     });
 
-    // Edit handlers - open a small inline edit or just re-populate the add form
     container.querySelectorAll('.edit-payment').forEach(btn => {
         btn.addEventListener('click', function() {
             const idx = parseInt(this.dataset.index);
             const payment = currentPayments[idx];
-            // Remove the payment and populate the form
             currentPayments.splice(idx, 1);
             renderPaymentsUI(currentPayments);
-            // Fill the add form with payment details
             $('paymentModeSelect').value = payment.mode;
             $('paymentAmount').value = payment.amount;
             if (payment.mode === 'cheque') {
@@ -1085,7 +1094,6 @@ function renderPaymentsUI(paymentsArray) {
                 $('bankPaymentFields').style.display = 'none';
                 $('creditPaymentFields').style.display = 'none';
             }
-            // Trigger change event to show correct fields
             $('paymentModeSelect').dispatchEvent(new Event('change'));
             showToast('Edit payment details, then click Add to update', 'info');
         });
@@ -1110,7 +1118,7 @@ function updatePaymentHiddenFields() {
 }
 
 // ================================================================
-// EDIT TRANSACTION (Multi-Payment)
+// EDIT TRANSACTION (Multi-Payment with KM)
 // ================================================================
 window.editTransaction = function(docId) {
     const txn = state.transactions.find(t => t.docId === docId);
@@ -1119,19 +1127,17 @@ window.editTransaction = function(docId) {
         return;
     }
 
-    // If expense, route to expense edit
     if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
         window.editExpense(docId);
         return;
     }
 
-    // Fill basic fields
     $('txnDate').value = txn.date || getToday();
     $('txnRoute').value = txn.route || '';
-    // Trigger route change to filter customers
     filterCustomersByRoute(txn.route);
     $('txnCustomer').value = txn.customer || '';
     $('txnDriver').value = txn.driver || '';
+    $('txnKM').value = txn.km || '';
     $('txnNotes').value = txn.notes || '';
     $('txnEditId').value = docId;
     $('txnUpdateBtn').style.display = 'inline-block';
@@ -1139,12 +1145,10 @@ window.editTransaction = function(docId) {
     $('txnSaveBtn').textContent = 'Update';
     $('txnFormTitle').textContent = 'Edit Transaction';
 
-    // Load payments
     let paymentList = [];
     if (txn.payments && Array.isArray(txn.payments) && txn.payments.length > 0) {
         paymentList = txn.payments.map(p => ({ ...p }));
     } else {
-        // Legacy conversion
         if (parseFloat(txn.cash) > 0) paymentList.push({ mode: 'cash', amount: parseFloat(txn.cash) });
         if (parseFloat(txn.cheque) > 0) {
             paymentList.push({
@@ -1177,7 +1181,7 @@ window.editTransaction = function(docId) {
 };
 
 // ================================================================
-// TRANSACTION FORM SUBMIT (with payments)
+// TRANSACTION FORM SUBMIT (with payments and KM)
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
     // ============================================================
@@ -1206,7 +1210,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 payment.chequeNo = chequeNo;
                 payment.bank = bank;
                 payment.chequeDate = chequeDate || null;
-                // Clear fields
                 $('paymentChequeNo').value = '';
                 $('paymentBank').value = '';
                 $('paymentChequeDate').value = '';
@@ -1235,7 +1238,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Toggle payment fields
     const paymentModeSelect = $('paymentModeSelect');
     if (paymentModeSelect) {
         paymentModeSelect.addEventListener('change', function() {
@@ -1269,13 +1271,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Build data
+            const km = parseFloat($('txnKM').value) || 0;
+
             const data = {
                 date: $('txnDate').value,
                 route: route,
                 customer: $('txnCustomer').value || null,
                 driver: $('txnDriver').value || null,
                 notes: $('txnNotes').value || null,
+                km: km,
                 payments: currentPayments.map(p => ({ ...p })),
                 cash: parseFloat($('txnCash').value) || 0,
                 cheque: parseFloat($('txnCheque').value) || 0,
@@ -1288,7 +1292,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 updatedAt: new Date().toISOString()
             };
 
-            // Extract cheque details if any
             const chequePay = currentPayments.find(p => p.mode === 'cheque');
             if (chequePay) {
                 data.chequeNo = chequePay.chequeNo || null;
@@ -1329,7 +1332,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         await db.collection('transactions').add(data);
                         showToast('Transaction saved successfully!');
                     }
-                    // Reset form
                     $('txnClearBtn').click();
                     await loadAllData();
                     renderAll();
@@ -1359,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', function() {
             $('txnSaveBtn').textContent = 'Save';
             $('txnFormTitle').textContent = 'Add Transaction';
             $('txnDate').value = getToday();
-            // Reset customer filter to all
+            $('txnKM').value = '';
             filterCustomersByRoute('');
             if ($('paymentModeSelect')) {
                 $('paymentModeSelect').value = 'cash';
@@ -1417,6 +1419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 Date: t.date,
                 Route: t.route,
                 Customer: t.customer,
+                KM: t.km || 0,
                 Cash: t.cash || 0,
                 Cheque: t.cheque || 0,
                 Banked: t.banked || 0,
@@ -1442,9 +1445,10 @@ document.addEventListener('DOMContentLoaded', function() {
             doc.text('Generated: ' + new Date().toLocaleString(), 14, 28);
 
             const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
-            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Banked', 'Credit'];
+            const cols = ['ID', 'Date', 'Route', 'Customer', 'KM', 'Cash', 'Cheque', 'Banked', 'Credit'];
             const rows = data.slice(0, 30).map(t => [
                 t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
+                (t.km || 0).toFixed(1),
                 (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2),
                 (t.banked || 0).toFixed(2), (t.credit || 0).toFixed(2)
             ]);
@@ -1493,7 +1497,6 @@ function renderCustomers() {
     const countEl = $('custCount');
     if (countEl) countEl.textContent = filtered.length + ' customers';
 
-    // Calculate balance: total amount received minus total credit given
     const balances = {};
     state.transactions.forEach(t => {
         if (t.customer) {
@@ -1511,7 +1514,7 @@ function renderCustomers() {
 
     tbody.innerHTML = filtered.map(c => {
         const bal = balances[c.name] || { received: 0, credit: 0 };
-        const balance = bal.credit - bal.received; // positive means customer owes
+        const balance = bal.credit - bal.received;
         return `
             <tr>
                 <td><strong>${c.name}</strong></td>
@@ -1654,7 +1657,7 @@ window.updateChequeStatus = async function(docId, newStatus) {
 };
 
 // ================================================================
-// ROUTES
+// ROUTES (with Total KM)
 // ================================================================
 function renderRoutes() {
     const tbody = $('routeTableBody');
@@ -1663,17 +1666,28 @@ function renderRoutes() {
     if (countEl) countEl.textContent = state.routes.length + ' routes';
 
     if (!state.routes.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No routes</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No routes</td></tr>`;
         return;
     }
 
+    // Calculate total KM per route
+    const routeKM = {};
+    state.transactions.forEach(t => {
+        if (t.route && t.km) {
+            if (!routeKM[t.route]) routeKM[t.route] = 0;
+            routeKM[t.route] += parseFloat(t.km) || 0;
+        }
+    });
+
     tbody.innerHTML = state.routes.map((r, i) => {
         const customerCount = state.customers.filter(c => c.route === r.name).length;
+        const totalKM = routeKM[r.name] || 0;
         return `
             <tr>
                 <td>${i+1}</td>
                 <td><strong>${r.name}</strong></td>
                 <td>${customerCount}</td>
+                <td>${totalKM > 0 ? totalKM.toFixed(1) + ' km' : '-'}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteRoute('${r.docId}')"><i class="bi bi-trash"></i></button>
                 </td>
@@ -1753,12 +1767,98 @@ window.deleteUser = async function(docId) {
 };
 
 // ================================================================
-// REPORTS
+// REPORTS (with KM Summary)
 // ================================================================
 function generateReport(type, month, year, routeCustomerValue, date) {
     const container = $('reportResult');
     if (!container) return;
 
+    // Route KM Summary
+    if (type === 'route-km-summary') {
+        let transactions = state.transactions.filter(t => t.km && parseFloat(t.km) > 0);
+
+        if (routeCustomerValue) {
+            const parts = routeCustomerValue.split(':');
+            if (parts.length === 2 && parts[0] === 'route') {
+                transactions = transactions.filter(t => t.route === parts[1]);
+            }
+        }
+        if (month) {
+            transactions = transactions.filter(t => t.date && t.date.startsWith(month));
+        }
+        if (year) {
+            transactions = transactions.filter(t => t.date && t.date.startsWith(year));
+        }
+        if (date) {
+            transactions = transactions.filter(t => t.date === date);
+        }
+
+        const routeMap = {};
+        transactions.forEach(t => {
+            const route = t.route || 'Unknown';
+            if (!routeMap[route]) routeMap[route] = { km: 0, count: 0 };
+            routeMap[route].km += parseFloat(t.km) || 0;
+            routeMap[route].count++;
+        });
+
+        const routes = Object.keys(routeMap);
+        if (!routes.length) {
+            container.innerHTML =
+                `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>No KM data found for the selected criteria</p></div>`;
+            return;
+        }
+
+        let totalKMAll = 0,
+            totalCount = 0;
+        let html = `
+                <div id="reportPrintContent">
+                    <h6 class="fw-semibold mb-3">Route KM Summary</h6>
+                    <p class="text-muted small">${transactions.length} transactions with KM found</p>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Total KM</th>
+                                <th>Trips</th>
+                                <th>Avg KM per Trip</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+
+        routes.forEach(route => {
+            const data = routeMap[route];
+            totalKMAll += data.km;
+            totalCount += data.count;
+            const avg = data.count > 0 ? data.km / data.count : 0;
+            html += `
+                            <tr>
+                                <td><strong>${route}</strong></td>
+                                <td>${data.km.toFixed(1)} km</td>
+                                <td>${data.count}</td>
+                                <td>${avg.toFixed(1)} km</td>
+                            </tr>
+                        `;
+        });
+
+        html += `
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td>TOTAL</td>
+                                <td>${totalKMAll.toFixed(1)} km</td>
+                                <td>${totalCount}</td>
+                                <td>${totalCount > 0 ? (totalKMAll / totalCount).toFixed(1) + ' km' : '-'}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+        container.innerHTML = html;
+        return;
+    }
+
+    // Route Expense Summary
     if (type === 'route-expense-summary') {
         let expenses = state.transactions.filter(t =>
             (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
@@ -1776,9 +1876,10 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         const routeMap = {};
         expenses.forEach(t => {
             const route = t.route || 'Unknown';
-            if (!routeMap[route]) routeMap[route] = { expense: 0, petrol: 0, count: 0 };
+            if (!routeMap[route]) routeMap[route] = { expense: 0, petrol: 0, km: 0, count: 0 };
             routeMap[route].expense += parseFloat(t.expense) || 0;
             routeMap[route].petrol += parseFloat(t.petrol) || 0;
+            routeMap[route].km += parseFloat(t.km) || 0;
             routeMap[route].count++;
         });
 
@@ -1791,6 +1892,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
 
         let totalExpenseAll = 0,
             totalPetrolAll = 0,
+            totalKMAll = 0,
             totalCount = 0;
         let html = `
                 <div id="reportPrintContent">
@@ -1798,7 +1900,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                     <p class="text-muted small">${expenses.length} expense transactions found</p>
                     <table class="table table-bordered">
                         <thead>
-                            <tr><th>Route</th><th>Expense (Rs.)</th><th>Petrol (Rs.)</th><th>Total (Rs.)</th><th>Transactions</th></tr>
+                            <tr><th>Route</th><th>Expense (Rs.)</th><th>Petrol (Rs.)</th><th>Total (Rs.)</th><th>KM</th><th>Trips</th></tr>
                         </thead>
                         <tbody>
                     `;
@@ -1807,6 +1909,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
             const total = data.expense + data.petrol;
             totalExpenseAll += data.expense;
             totalPetrolAll += data.petrol;
+            totalKMAll += data.km;
             totalCount += data.count;
             html += `
                             <tr>
@@ -1814,6 +1917,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                                 <td>${formatCurrency(data.expense)}</td>
                                 <td>${formatCurrency(data.petrol)}</td>
                                 <td><strong>${formatCurrency(total)}</strong></td>
+                                <td>${data.km.toFixed(1)} km</td>
                                 <td>${data.count}</td>
                             </tr>
                         `;
@@ -1826,6 +1930,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                                 <td>${formatCurrency(totalExpenseAll)}</td>
                                 <td>${formatCurrency(totalPetrolAll)}</td>
                                 <td>${formatCurrency(totalExpenseAll + totalPetrolAll)}</td>
+                                <td>${totalKMAll.toFixed(1)} km</td>
                                 <td>${totalCount}</td>
                             </tr>
                         </tfoot>
@@ -1836,6 +1941,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         return;
     }
 
+    // Regular reports (exclude expenses)
     let data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
 
     if (type === 'daily') {
@@ -1876,6 +1982,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     const totalCredit = data.reduce((s, t) => s + (parseFloat(t.credit) || 0), 0);
     const totalBanked = data.reduce((s, t) => s + (parseFloat(t.banked) || 0), 0);
     const totalIncome = totalCash + totalCheque + totalCredit + totalBanked;
+    const totalKM = data.reduce((s, t) => s + (parseFloat(t.km) || 0), 0);
 
     let filterDesc = '';
     if (type === 'daily') filterDesc = date || getToday();
@@ -1900,16 +2007,18 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                         <tr><td>Total Credit</td><td>${formatCurrency(totalCredit)}</td></tr>
                         <tr><td>Total Bank Transfer</td><td>${formatCurrency(totalBanked)}</td></tr>
                         <tr><td><strong>Total Income</strong></td><td><strong>${formatCurrency(totalIncome)}</strong></td></tr>
+                        <tr><td>Total KM</td><td>${totalKM.toFixed(1)} km</td></tr>
                     </tbody>
                 </table>
                 <hr />
                 <div style="max-height:300px;overflow-y:auto;">
                     <table class="table table-sm">
-                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Banked</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Route</th><th>KM</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Banked</th></tr></thead>
                         <tbody>
                             ${data.slice(0,50).map(t => `<tr>
                                 <td>${formatDate(t.date)}</td>
                                 <td>${t.route||'-'}</td>
+                                <td>${(t.km||0).toFixed(1)}</td>
                                 <td>${formatCurrency(t.cash)}</td>
                                 <td>${formatCurrency(t.cheque)}</td>
                                 <td>${formatCurrency(t.credit)}</td>
@@ -1957,11 +2066,9 @@ function navigateTo(page) {
     if (page === 'dashboard') initDashboard();
     if (page === 'transactions') {
         renderTransactions();
-        // Reset form if not editing
         if (!$('txnEditId').value) {
             $('txnClearBtn').click();
         }
-        // Ensure customer filter works
         const routeSelect = $('txnRoute');
         if (routeSelect) {
             filterCustomersByRoute(routeSelect.value);
@@ -2151,6 +2258,7 @@ async function generateSampleData() {
                 const expense = Math.round((Math.random() * 10) * 100) / 100;
                 const petrol = Math.round((Math.random() * 8) * 100) / 100;
                 const banked = Math.round((Math.random() * 15) * 100) / 100;
+                const km = Math.round((Math.random() * 50 + 5) * 10) / 10;
                 const customId = generateId();
 
                 const txn = {
@@ -2169,7 +2277,7 @@ async function generateSampleData() {
                     expense: expense,
                     expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math.random() * 4)] : null,
                     petrol: petrol,
-                    km: null,
+                    km: km,
                     banked: banked,
                     driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
                     notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
@@ -2201,7 +2309,7 @@ async function generateSampleData() {
 }
 
 // ================================================================
-// DOMContentLoaded - Event Listeners (additional)
+// DOMContentLoaded - Event Listeners
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -2481,6 +2589,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const route = $('expRoute') ? $('expRoute').value : '';
             const amount = parseFloat($('expAmount') ? $('expAmount').value : 0) || 0;
             const petrol = parseFloat($('expPetrol') ? $('expPetrol').value : 0) || 0;
+            const km = parseFloat($('expKM') ? $('expKM').value : 0) || 0;
             const reason = $('expReason') ? $('expReason').value.trim() : '';
             const driver = $('expDriver') ? $('expDriver').value.trim() : '';
             const notes = $('expNotes') ? $('expNotes').value.trim() : '';
@@ -2503,7 +2612,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 expense: amount,
                 expenseReason: reason || null,
                 petrol: petrol,
-                km: null,
+                km: km,
                 banked: 0,
                 driver: driver || null,
                 notes: notes || null,
@@ -3005,7 +3114,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderPaymentsUI([]);
     updatePaymentHiddenFields();
 
-    console.log('✅ JDMS v3.0 - Multi-Payment with Route Filter and Balance');
+    console.log('✅ JDMS v4.0 - Multi-Payment with KM Tracking');
 });
 
 // ================================================================
@@ -3013,6 +3122,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v3.0 - Multi-Payment with Route Filter and Balance');
-console.log('📦 Features: Multi-payment (Cash, Cheque, Bank, Credit), Route filter, Balance tracking');
+console.log('🚀 JDMS v4.0 - Multi-Payment with KM Tracking');
+console.log('📦 Features: Multi-payment (Cash, Cheque, Bank, Credit), Route filter, Balance tracking, KM Tracking');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
+```
