@@ -404,11 +404,11 @@ function renderAll() {
     populateCustomerRouteSelects();
     populateReportRouteSelect();
     populateRouteExpenseFilter();
+    populateExpenseRouteSelect();
     updateChequeBadge();
     updateTopbarStats();
     updateLastUpdated();
     checkChequeNotifications();
-    // Check if route expenses page is active, if so render it
     const rePage = document.getElementById('page-route-expenses');
     if (rePage && rePage.classList.contains('active')) {
         renderRouteExpenses();
@@ -509,8 +509,24 @@ function populateRouteExpenseFilter() {
     }
 }
 
+function populateExpenseRouteSelect() {
+    const sel = $('expRoute');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Select Route</option>';
+    state.routes.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.name;
+        opt.textContent = r.name;
+        sel.appendChild(opt);
+    });
+    if (current && Array.from(sel.options).some(o => o.value === current)) {
+        sel.value = current;
+    }
+}
+
 // ================================================================
-// ROUTE EXPENSES PAGE
+// ROUTE EXPENSES - COMPLETE CRUD
 // ================================================================
 function renderRouteExpenses() {
     const tbody = $('reTableBody');
@@ -594,13 +610,131 @@ function renderRouteExpenses() {
                     <td>${t.driver || '-'}</td>
                     <td>${t.notes || '-'}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-info view-expense-btn me-1" onclick="viewExpenseDetail('${t.docId}')" title="View Details"><i class="bi bi-eye"></i></button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editExpense('${t.docId}')"><i class="bi bi-pencil"></i></button>
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
                     </td>
                 </tr>
             `;
     }).join('');
 }
+
+// ================================================================
+// EXPENSE CRUD FUNCTIONS
+// ================================================================
+window.editExpense = function(docId) {
+    const txn = state.transactions.find(t => t.docId === docId);
+    if (!txn) {
+        showToast('Expense not found', 'danger');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('expenseFormModal'));
+    const form = document.getElementById('expenseForm');
+    const editId = document.getElementById('expenseEditId');
+    const title = document.getElementById('expenseFormTitle');
+    const saveBtn = document.getElementById('expSaveBtn');
+
+    form.reset();
+    editId.value = docId;
+    title.innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Expense';
+    saveBtn.textContent = 'Update';
+
+    document.getElementById('expDate').value = txn.date || getToday();
+    document.getElementById('expRoute').value = txn.route || '';
+    document.getElementById('expAmount').value = txn.expense || 0;
+    document.getElementById('expPetrol').value = txn.petrol || 0;
+    document.getElementById('expReason').value = txn.expenseReason || '';
+    document.getElementById('expDriver').value = txn.driver || '';
+    document.getElementById('expNotes').value = txn.notes || '';
+
+    populateExpenseRouteSelect();
+    modal.show();
+};
+
+window.viewExpenseDetail = function(docId) {
+    const txn = state.transactions.find(t => t.docId === docId);
+    if (!txn) {
+        showToast('Expense not found', 'danger');
+        return;
+    }
+
+    const body = document.getElementById('expenseDetailBody');
+    const editBtn = document.getElementById('expenseEditFromModal');
+
+    const expAmt = parseFloat(txn.expense) || 0;
+    const petAmt = parseFloat(txn.petrol) || 0;
+    const type = (expAmt > 0 && petAmt > 0) ? 'Both' : (expAmt > 0 ? 'Expense' : 'Petrol');
+
+    body.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Date</div>
+                    <div class="expense-detail-value">${formatDate(txn.date)}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Route</div>
+                    <div class="expense-detail-value">${txn.route || '-'}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Type</div>
+                    <div class="expense-detail-value"><span class="badge bg-${type === 'Both' ? 'warning' : type === 'Expense' ? 'danger' : 'info'}">${type}</span></div>
+                </div>
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Total Amount</div>
+                    <div class="expense-detail-value fw-bold">${formatCurrency(expAmt + petAmt)}</div>
+                </div>
+                ${expAmt > 0 ? `
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Expense Amount</div>
+                    <div class="expense-detail-value">${formatCurrency(expAmt)}</div>
+                </div>
+                ` : ''}
+                ${petAmt > 0 ? `
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Petrol Amount</div>
+                    <div class="expense-detail-value">${formatCurrency(petAmt)}</div>
+                </div>
+                ` : ''}
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Reason</div>
+                    <div class="expense-detail-value">${txn.expenseReason || '-'}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="expense-detail-label">Driver</div>
+                    <div class="expense-detail-value">${txn.driver || '-'}</div>
+                </div>
+                <div class="col-12">
+                    <div class="expense-detail-label">Notes</div>
+                    <div class="expense-detail-value">${txn.notes || '-'}</div>
+                </div>
+                ${txn.cheque && parseFloat(txn.cheque) > 0 ? `
+                <div class="col-12"><hr /></div>
+                <div class="col-md-4">
+                    <div class="expense-detail-label">Cheque No.</div>
+                    <div class="expense-detail-value">${txn.chequeNo || '-'}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="expense-detail-label">Bank</div>
+                    <div class="expense-detail-value">${txn.bank || '-'}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="expense-detail-label">Cheque Date</div>
+                    <div class="expense-detail-value">${formatDate(txn.chequeDate)}</div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+    editBtn.onclick = function() {
+        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('expenseDetailModal'));
+        modalInstance.hide();
+        setTimeout(() => window.editExpense(docId), 300);
+    };
+
+    const modal = new bootstrap.Modal(document.getElementById('expenseDetailModal'));
+    modal.show();
+};
 
 // ================================================================
 // DASHBOARD
@@ -656,7 +790,7 @@ function renderDashboardStats() {
 function renderRecentTransactions() {
     const container = $('recentTransactions');
     if (!container) return;
-    const recent = state.transactions.slice(0, 5);
+    const recent = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)).slice(0, 5);
     if (!recent.length) {
         container.innerHTML = `<div class="empty-state"><i class="bi bi-inbox"></i><p>No recent transactions</p></div>`;
         return;
@@ -716,7 +850,7 @@ function renderDashboardChart() {
 }
 
 // ================================================================
-// TRANSACTIONS CRUD - WITH TABS & ROUTE FILTER
+// TRANSACTIONS CRUD (Income & Bank Transfer only)
 // ================================================================
 let currentTxnTab = 'all';
 
@@ -728,7 +862,8 @@ function renderTransactions() {
     const routeFilter = $('txnRouteFilter');
     const routeVal = routeFilter ? routeFilter.value : '';
 
-    let filtered = state.transactions;
+    // Filter out expenses
+    let filtered = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
 
     if (searchVal) {
         filtered = filtered.filter(t =>
@@ -749,8 +884,6 @@ function renderTransactions() {
         filtered = filtered.filter(t => parseFloat(t.cheque) > 0);
     } else if (currentTxnTab === 'transfer') {
         filtered = filtered.filter(t => parseFloat(t.banked) > 0 && parseFloat(t.cash) === 0 && parseFloat(t.cheque) === 0);
-    } else if (currentTxnTab === 'expense') {
-        filtered = filtered.filter(t => parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0);
     }
 
     const countEl = $('txnCount');
@@ -768,10 +901,7 @@ function renderTransactions() {
     tbody.innerHTML = filtered.slice(0, 50).map(t => {
         let type = 'Income';
         let typeBadge = 'success';
-        if (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0) {
-            type = 'Expense';
-            typeBadge = 'danger';
-        } else if (parseFloat(t.banked) > 0 && parseFloat(t.cash) === 0 && parseFloat(t.cheque) === 0) {
+        if (parseFloat(t.banked) > 0 && parseFloat(t.cash) === 0 && parseFloat(t.cheque) === 0) {
             type = 'Transfer';
             typeBadge = 'info';
         } else if (parseFloat(t.cheque) > 0) {
@@ -792,7 +922,7 @@ function renderTransactions() {
                 <td>${formatCurrency(t.cheque)}</td>
                 <td>${formatCurrency(t.credit)}</td>
                 <td>${formatCurrency(t.banked)}</td>
-                <td>${formatCurrency(t.expense)}</td>
+                <td>-</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="editTransaction('${t.docId}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${t.docId}')"><i class="bi bi-trash"></i></button>
@@ -813,20 +943,60 @@ function getTransactionFormData() {
         bank: $('txnBank') ? $('txnBank').value || null : null,
         branch: $('txnBranch') ? $('txnBranch').value || null : null,
         chequeDate: $('txnChequeDate') ? $('txnChequeDate').value || null : null,
-        credit: parseFloat($('txnCredit') ? $('txnCredit').value : 0) || 0,
-        advance: parseFloat($('txnAdvance') ? $('txnAdvance').value : 0) || 0,
-        expense: parseFloat($('txnExpense') ? $('txnExpense').value : 0) || 0,
-        expenseReason: $('txnExpenseReason') ? $('txnExpenseReason').value || null : null,
-        petrol: parseFloat($('txnPetrol') ? $('txnPetrol').value : 0) || 0,
-        km: $('txnKM') ? $('txnKM').value || null : null,
+        credit: 0,
+        advance: 0,
+        expense: 0,
+        expenseReason: null,
+        petrol: 0,
+        km: null,
         banked: parseFloat($('txnBanked') ? $('txnBanked').value : 0) || 0,
         transferBank: $('txnTransferBank') ? $('txnTransferBank').value || null : null,
         transferRef: $('txnTransferRef') ? $('txnTransferRef').value || null : null,
         driver: $('txnDriver') ? $('txnDriver').value || null : null,
-        primary: $('txnPrimary') ? $('txnPrimary').value || null : null,
+        primary: null,
         notes: $('txnNotes') ? $('txnNotes').value || null : null,
         chequeStatus: 'pending',
     };
+}
+
+// Form visibility functions for transaction form (without expense)
+function updateFormVisibility() {
+    const txnTypeHidden = $('txnType');
+    const paymentModeHidden = $('paymentMode');
+    const chequeSection = $('chequeDetailsSection');
+
+    const paymentMode = paymentModeHidden ? paymentModeHidden.value : 'cash';
+
+    if (paymentMode === 'cheque' && chequeSection) {
+        chequeSection.classList.remove('hidden');
+    } else if (chequeSection) {
+        chequeSection.classList.add('hidden');
+    }
+
+    updateAmountMapping();
+}
+
+function updateAmountMapping() {
+    const amountField = $('txnAmount');
+    const txnCash = $('txnCash');
+    const txnCheque = $('txnCheque');
+    const txnBanked = $('txnBanked');
+    const paymentModeHidden = $('paymentMode');
+
+    const amount = parseFloat(amountField?.value) || 0;
+    const paymentMode = paymentModeHidden?.value || 'cash';
+
+    if (txnCash) txnCash.value = '0';
+    if (txnCheque) txnCheque.value = '0';
+    if (txnBanked) txnBanked.value = '0';
+
+    if (paymentMode === 'cash' && txnCash) {
+        txnCash.value = amount.toFixed(2);
+    } else if (paymentMode === 'cheque' && txnCheque) {
+        txnCheque.value = amount.toFixed(2);
+    } else if (paymentMode === 'bank' && txnBanked) {
+        txnBanked.value = amount.toFixed(2);
+    }
 }
 
 window.editTransaction = async function(docId) {
@@ -835,6 +1005,13 @@ window.editTransaction = async function(docId) {
         showToast('Transaction not found', 'danger');
         return;
     }
+
+    // If it's an expense, redirect to editExpense
+    if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
+        window.editExpense(docId);
+        return;
+    }
+
     const txnDate = $('txnDate');
     const txnRoute = $('txnRoute');
     const txnCustomer = $('txnCustomer');
@@ -844,17 +1021,10 @@ window.editTransaction = async function(docId) {
     const txnBank = $('txnBank');
     const txnBranch = $('txnBranch');
     const txnChequeDate = $('txnChequeDate');
-    const txnCredit = $('txnCredit');
-    const txnAdvance = $('txnAdvance');
-    const txnExpense = $('txnExpense');
-    const txnExpenseReason = $('txnExpenseReason');
-    const txnPetrol = $('txnPetrol');
-    const txnKM = $('txnKM');
     const txnBanked = $('txnBanked');
     const txnTransferBank = $('txnTransferBank');
     const txnTransferRef = $('txnTransferRef');
     const txnDriver = $('txnDriver');
-    const txnPrimary = $('txnPrimary');
     const txnNotes = $('txnNotes');
     const txnEditId = $('txnEditId');
     const txnUpdateBtn = $('txnUpdateBtn');
@@ -873,17 +1043,10 @@ window.editTransaction = async function(docId) {
     if (txnBank) txnBank.value = txn.bank || '';
     if (txnBranch) txnBranch.value = txn.branch || '';
     if (txnChequeDate) txnChequeDate.value = txn.chequeDate || '';
-    if (txnCredit) txnCredit.value = txn.credit || '';
-    if (txnAdvance) txnAdvance.value = txn.advance || '';
-    if (txnExpense) txnExpense.value = txn.expense || '';
-    if (txnExpenseReason) txnExpenseReason.value = txn.expenseReason || '';
-    if (txnPetrol) txnPetrol.value = txn.petrol || '';
-    if (txnKM) txnKM.value = txn.km || '';
     if (txnBanked) txnBanked.value = txn.banked || '';
     if (txnTransferBank) txnTransferBank.value = txn.transferBank || '';
     if (txnTransferRef) txnTransferRef.value = txn.transferRef || '';
     if (txnDriver) txnDriver.value = txn.driver || '';
-    if (txnPrimary) txnPrimary.value = txn.primary || '';
     if (txnNotes) txnNotes.value = txn.notes || '';
     if (txnEditId) txnEditId.value = docId;
     if (txnUpdateBtn) txnUpdateBtn.style.display = 'inline-block';
@@ -891,11 +1054,9 @@ window.editTransaction = async function(docId) {
     if (txnSaveBtn) txnSaveBtn.textContent = 'Update';
     if (txnFormTitle) txnFormTitle.textContent = 'Edit Transaction';
 
-    // Set amount
     const amount = (parseFloat(txn.cash) || 0) + (parseFloat(txn.cheque) || 0) + (parseFloat(txn.banked) || 0);
     if (amountField) amountField.value = amount || 0;
 
-    // Set payment mode
     let paymentMode = 'cash';
     if (parseFloat(txn.cheque) > 0) paymentMode = 'cheque';
     else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) paymentMode = 'bank';
@@ -906,11 +1067,8 @@ window.editTransaction = async function(docId) {
     const paymentModeHidden = $('paymentMode');
     if (paymentModeHidden) paymentModeHidden.value = paymentMode;
 
-    // Set type
     let txnTypeVal = 'income';
-    if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
-        txnTypeVal = 'expense';
-    } else if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
+    if (parseFloat(txn.banked) > 0 && parseFloat(txn.cash) === 0 && parseFloat(txn.cheque) === 0) {
         txnTypeVal = 'transfer';
     }
     document.querySelectorAll('input[name="txnType"]').forEach(radio => {
@@ -918,10 +1076,9 @@ window.editTransaction = async function(docId) {
     });
     if (txnType) txnType.value = txnTypeVal;
 
-    // Update visibility
     updateFormVisibility();
+    updateAmountMapping();
 
-    // Show cheque details if cheque payment
     const chequeSection = $('chequeDetailsSection');
     if (paymentMode === 'cheque' && chequeSection) {
         chequeSection.classList.remove('hidden');
@@ -947,70 +1104,7 @@ window.deleteTransaction = async function(docId) {
 };
 
 // ================================================================
-// UPDATE FORM VISIBILITY (NEW FORM)
-// ================================================================
-function updateFormVisibility() {
-    const txnTypeHidden = $('txnType');
-    const paymentModeHidden = $('paymentMode');
-    const chequeSection = $('chequeDetailsSection');
-    const txnType = txnTypeHidden ? txnTypeHidden.value : 'income';
-    const paymentMode = paymentModeHidden ? paymentModeHidden.value : 'cash';
-
-    if (paymentMode === 'cheque' && chequeSection) {
-        chequeSection.classList.remove('hidden');
-    } else if (chequeSection) {
-        chequeSection.classList.add('hidden');
-    }
-
-    const expenseReason = $('txnExpenseReason');
-    const petrolField = $('txnPetrol');
-    const expenseRow = expenseReason?.closest('.row');
-    if (expenseRow) {
-        if (txnType === 'expense') {
-            expenseRow.style.display = 'flex';
-        } else {
-            expenseRow.style.display = 'none';
-        }
-    }
-
-    // Map amount to hidden fields
-    updateAmountMapping();
-}
-
-function updateAmountMapping() {
-    const amountField = $('txnAmount');
-    const txnCash = $('txnCash');
-    const txnCheque = $('txnCheque');
-    const txnBanked = $('txnBanked');
-    const txnExpense = $('txnExpense');
-    const paymentModeHidden = $('paymentMode');
-    const txnTypeHidden = $('txnType');
-
-    const amount = parseFloat(amountField?.value) || 0;
-    const paymentMode = paymentModeHidden?.value || 'cash';
-    const txnType = txnTypeHidden?.value || 'income';
-
-    if (txnCash) txnCash.value = '0';
-    if (txnCheque) txnCheque.value = '0';
-    if (txnBanked) txnBanked.value = '0';
-    if (txnExpense) txnExpense.value = '0';
-
-    if (txnType === 'income') {
-        if (paymentMode === 'cash' && txnCash) txnCash.value = amount.toFixed(2);
-        else if (paymentMode === 'cheque' && txnCheque) txnCheque.value = amount.toFixed(2);
-        else if (paymentMode === 'bank' && txnBanked) txnBanked.value = amount.toFixed(2);
-    } else if (txnType === 'expense') {
-        if (txnExpense) txnExpense.value = amount.toFixed(2);
-        if (paymentMode === 'cash' && txnCash) txnCash.value = amount.toFixed(2);
-        else if (paymentMode === 'cheque' && txnCheque) txnCheque.value = amount.toFixed(2);
-        else if (paymentMode === 'bank' && txnBanked) txnBanked.value = amount.toFixed(2);
-    } else if (txnType === 'transfer') {
-        if (txnBanked) txnBanked.value = amount.toFixed(2);
-    }
-}
-
-// ================================================================
-// CUSTOMERS CRUD - WITH ROUTE FILTER
+// CUSTOMERS CRUD
 // ================================================================
 function renderCustomers() {
     const tbody = $('custTableBody');
@@ -1190,7 +1284,7 @@ window.updateChequeStatus = async function(docId, newStatus) {
 };
 
 // ================================================================
-// ROUTES (Only Routes List)
+// ROUTES
 // ================================================================
 function renderRoutes() {
     const tbody = $('routeTableBody');
@@ -1294,7 +1388,105 @@ window.deleteUser = async function(docId) {
 function generateReport(type, month, year, routeCustomerValue, date) {
     const container = $('reportResult');
     if (!container) return;
-    let data = [...state.transactions];
+
+    // Handle Route Expense Summary separately
+    if (type === 'route-expense-summary') {
+        let expenses = state.transactions.filter(t =>
+            (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
+        );
+
+        if (routeCustomerValue) {
+            const parts = routeCustomerValue.split(':');
+            if (parts.length === 2 && parts[0] === 'route') {
+                expenses = expenses.filter(t => t.route === parts[1]);
+            }
+        }
+        if (month) {
+            expenses = expenses.filter(t => t.date && t.date.startsWith(month));
+        }
+        if (year) {
+            expenses = expenses.filter(t => t.date && t.date.startsWith(year));
+        }
+        if (date) {
+            expenses = expenses.filter(t => t.date === date);
+        }
+
+        const routeMap = {};
+        expenses.forEach(t => {
+            const route = t.route || 'Unknown';
+            if (!routeMap[route]) {
+                routeMap[route] = { expense: 0, petrol: 0, count: 0 };
+            }
+            routeMap[route].expense += parseFloat(t.expense) || 0;
+            routeMap[route].petrol += parseFloat(t.petrol) || 0;
+            routeMap[route].count++;
+        });
+
+        const routes = Object.keys(routeMap);
+        if (!routes.length) {
+            container.innerHTML =
+                `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>No expense data found for the selected criteria</p></div>`;
+            return;
+        }
+
+        let totalExpenseAll = 0,
+            totalPetrolAll = 0,
+            totalCount = 0;
+        let html = `
+                <div id="reportPrintContent">
+                    <h6 class="fw-semibold mb-3">Route Expense Summary</h6>
+                    <p class="text-muted small">${expenses.length} expense transactions found</p>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Expense (Rs.)</th>
+                                <th>Petrol (Rs.)</th>
+                                <th>Total (Rs.)</th>
+                                <th>Transactions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+
+        routes.forEach(route => {
+            const data = routeMap[route];
+            const total = data.expense + data.petrol;
+            totalExpenseAll += data.expense;
+            totalPetrolAll += data.petrol;
+            totalCount += data.count;
+            html += `
+                        <tr>
+                            <td><strong>${route}</strong></td>
+                            <td>${formatCurrency(data.expense)}</td>
+                            <td>${formatCurrency(data.petrol)}</td>
+                            <td><strong>${formatCurrency(total)}</strong></td>
+                            <td>${data.count}</td>
+                        </tr>
+                    `;
+        });
+
+        html += `
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td>TOTAL</td>
+                                <td>${formatCurrency(totalExpenseAll)}</td>
+                                <td>${formatCurrency(totalPetrolAll)}</td>
+                                <td>${formatCurrency(totalExpenseAll + totalPetrolAll)}</td>
+                                <td>${totalCount}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+
+        container.innerHTML = html;
+        return;
+    }
+
+    // Regular reports (exclude expenses)
+    let data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
 
     if (type === 'daily') {
         const filterDate = date || getToday();
@@ -1317,10 +1509,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         data = data.filter(t => parseFloat(t.credit) > 0);
     } else if (type === 'bank') {
         data = data.filter(t => parseFloat(t.banked) > 0);
-    } else if (type === 'expense') {
-        data = data.filter(t => parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0);
-    } else if (type === 'petrol') {
-        data = data.filter(t => parseFloat(t.petrol) > 0);
     }
 
     if (routeCustomerValue) {
@@ -1339,19 +1527,14 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     const totalCash = data.reduce((s, t) => s + (parseFloat(t.cash) || 0), 0);
     const totalCheque = data.reduce((s, t) => s + (parseFloat(t.cheque) || 0), 0);
     const totalCredit = data.reduce((s, t) => s + (parseFloat(t.credit) || 0), 0);
-    const totalExpense = data.reduce((s, t) => s + (parseFloat(t.expense) || 0), 0);
-    const totalPetrol = data.reduce((s, t) => s + (parseFloat(t.petrol) || 0), 0);
     const totalBanked = data.reduce((s, t) => s + (parseFloat(t.banked) || 0), 0);
     const totalIncome = totalCash + totalCheque + totalCredit;
-    const totalCost = totalExpense + totalPetrol;
-    const profit = totalIncome - totalCost;
 
     let filterDesc = '';
     if (type === 'daily') filterDesc = date || getToday();
     else if (type === 'weekly') filterDesc = 'Last 7 Days';
     else if (type === 'monthly') filterDesc = month || '';
     else if (type === 'yearly') filterDesc = year || '';
-    else if (type === 'route' || type === 'customer') filterDesc = routeCustomerValue ? routeCustomerValue.split(':')[1] : '';
     else filterDesc = type.charAt(0).toUpperCase() + type.slice(1);
 
     if (routeCustomerValue) {
@@ -1370,18 +1553,13 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                         <tr><td>Total Cheque</td><td>${formatCurrency(totalCheque)}</td></tr>
                         <tr><td>Total Credit</td><td>${formatCurrency(totalCredit)}</td></tr>
                         <tr><td><strong>Total Income</strong></td><td><strong>${formatCurrency(totalIncome)}</strong></td></tr>
-                        <tr><td>Total Expense</td><td>${formatCurrency(totalExpense)}</td></tr>
-                        <tr><td>Total Petrol</td><td>${formatCurrency(totalPetrol)}</td></tr>
-                        <tr><td><strong>Total Cost</strong></td><td><strong>${formatCurrency(totalCost)}</strong></td></tr>
-                        <tr><td class="fw-bold text-success">Profit / Loss</td>
-                            <td class="fw-bold ${profit>=0?'text-success':'text-danger'}">${formatCurrency(profit)}</td></tr>
                         <tr><td>Total Banked</td><td>${formatCurrency(totalBanked)}</td></tr>
                     </tbody>
                 </table>
                 <hr />
                 <div style="max-height:300px;overflow-y:auto;">
                     <table class="table table-sm">
-                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Expense</th><th>Petrol</th><th>Banked</th></tr></thead>
+                        <thead><tr><th>Date</th><th>Route</th><th>Cash</th><th>Cheque</th><th>Credit</th><th>Banked</th></tr></thead>
                         <tbody>
                             ${data.slice(0,50).map(t => `<tr>
                                 <td>${formatDate(t.date)}</td>
@@ -1389,8 +1567,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                                 <td>${formatCurrency(t.cash)}</td>
                                 <td>${formatCurrency(t.cheque)}</td>
                                 <td>${formatCurrency(t.credit)}</td>
-                                <td>${formatCurrency(t.expense)}</td>
-                                <td>${formatCurrency(t.petrol)}</td>
                                 <td>${formatCurrency(t.banked)}</td>
                             </tr>`).join('')}
                         </tbody>
@@ -1478,7 +1654,7 @@ function applyRoleRestrictions() {
 }
 
 // ================================================================
-// TRANSACTION TYPE TOGGLE (NEW FORM)
+// TRANSACTION TYPE TOGGLE
 // ================================================================
 function setupTransactionTypeToggle() {
     const typeRadios = document.querySelectorAll('input[name="txnType"]');
@@ -1513,7 +1689,7 @@ function setupTransactionTypeToggle() {
 }
 
 // ================================================================
-// CHEQUE NOTIFICATIONS - FIXED
+// CHEQUE NOTIFICATIONS
 // ================================================================
 let notifiedCheques = new Set();
 
@@ -1532,23 +1708,17 @@ function checkChequeNotifications() {
         const daysLeft = Math.ceil((new Date(c.chequeDate) - today) / (1000 * 60 * 60 * 24));
         const message = `Cheque ${c.chequeNo} (${c.customer}) due in ${daysLeft} day(s)`;
 
-        // In-app toast notification
         showToast(`⏰ ${message}`, 'warning');
 
-        // Browser notification - FIXED with proper error handling
         try {
-            // Check if Notification API is available and permission is granted
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                // Use try-catch to handle any constructor errors
                 try {
                     new Notification('JDMS - Cheque Reminder', {
                         body: message,
                         icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
                     });
                 } catch (notifError) {
-                    // Some browsers (like Safari) may still throw errors
                     console.warn('Browser notification failed:', notifError.message);
-                    // Fallback: try using ServiceWorkerRegistration if available
                     if (navigator.serviceWorker && navigator.serviceWorker.ready) {
                         navigator.serviceWorker.ready.then(registration => {
                             registration.showNotification('JDMS - Cheque Reminder', {
@@ -1559,7 +1729,6 @@ function checkChequeNotifications() {
                     }
                 }
             } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                // Request permission if not yet decided
                 Notification.requestPermission().then(permission => {
                     if (permission === 'granted') {
                         try {
@@ -1567,14 +1736,11 @@ function checkChequeNotifications() {
                                 body: message,
                                 icon: 'https://via.placeholder.com/64/1a3a6b/fff?text=JD'
                             });
-                        } catch (e) {
-                            // Ignore
-                        }
+                        } catch (e) { /* ignore */ }
                     }
                 }).catch(() => {});
             }
         } catch (error) {
-            // Silently fail for browser notifications - don't break the app
             console.debug('Browser notifications not supported:', error.message);
         }
 
@@ -1668,8 +1834,6 @@ async function generateSampleData() {
                 const expense = Math.round((Math.random() * 10) * 100) / 100;
                 const petrol = Math.round((Math.random() * 8) * 100) / 100;
                 const banked = Math.round((Math.random() * 15) * 100) / 100;
-                const km = Math.round(100 + Math.random() * 400);
-
                 const customId = generateId();
 
                 const txn = {
@@ -1688,7 +1852,7 @@ async function generateSampleData() {
                     expense: expense,
                     expenseReason: expense > 0 ? ['Fuel', 'Maintenance', 'Food', 'Supplies'][Math.floor(Math.random() * 4)] : null,
                     petrol: petrol,
-                    km: km.toString(),
+                    km: null,
                     banked: banked,
                     driver: ['Saman', 'Kamal', 'Nimal', 'Sunil', 'Ranjith'][Math.floor(Math.random() * 5)],
                     notes: Math.random() > 0.7 ? ['Good day', 'Delivered on time', 'Customer happy', 'Delay due to traffic'][Math.floor(Math.random() * 4)] : null,
@@ -1802,7 +1966,6 @@ document.addEventListener('DOMContentLoaded', function() {
         transactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Validate amount
             const amountField = $('txnAmount');
             const amount = parseFloat(amountField?.value);
             if (isNaN(amount) || amount <= 0) {
@@ -1810,14 +1973,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Validate route
             const route = $('txnRoute');
             if (!route || !route.value) {
                 showToast('Please select a route', 'warning');
                 return;
             }
 
-            // Validate cheque details if payment mode is cheque
             const paymentMode = $('paymentMode');
             if (paymentMode && paymentMode.value === 'cheque') {
                 const chequeNo = $('txnChequeNo');
@@ -1828,7 +1989,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // Update amount mapping before submit
             updateAmountMapping();
 
             const editId = $('txnEditId') ? $('txnEditId').value : '';
@@ -1858,7 +2018,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (transactionForm) transactionForm.reset();
                 const txnDateEl = $('txnDate');
                 if (txnDateEl) txnDateEl.value = getToday();
-                // Reset form
                 document.getElementById('txnTypeIncome').checked = true;
                 document.getElementById('paymentCash').checked = true;
                 const txnTypeHidden = $('txnType');
@@ -1867,7 +2026,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (paymentModeHidden) paymentModeHidden.value = 'cash';
                 if ($('chequeDetailsSection')) $('chequeDetailsSection').classList.add('hidden');
                 if ($('txnAmount')) $('txnAmount').value = '';
-                // Reset hidden amount fields
                 ['txnCash', 'txnCheque', 'txnBanked', 'txnExpense'].forEach(id => {
                     const el = $(id);
                     if (el) el.value = '0';
@@ -1900,29 +2058,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (deleteBtn) deleteBtn.style.display = 'none';
             if (saveBtn) saveBtn.textContent = 'Save';
             if (formTitle) formTitle.textContent = 'Add Transaction';
-
-            // Reset radio buttons
             document.getElementById('txnTypeIncome').checked = true;
             document.getElementById('paymentCash').checked = true;
             const txnTypeHidden = $('txnType');
             const paymentModeHidden = $('paymentMode');
             if (txnTypeHidden) txnTypeHidden.value = 'income';
             if (paymentModeHidden) paymentModeHidden.value = 'cash';
-
-            // Hide cheque section
             const chequeSection = $('chequeDetailsSection');
             if (chequeSection) chequeSection.classList.add('hidden');
-
-            // Reset amount
-            const amountField = $('txnAmount');
-            if (amountField) amountField.value = '';
-
-            // Reset hidden amount fields
+            if ($('txnAmount')) $('txnAmount').value = '';
             ['txnCash', 'txnCheque', 'txnBanked', 'txnExpense'].forEach(id => {
                 const el = $(id);
                 if (el) el.value = '0';
             });
-
             showToast('Form cleared', 'info');
         });
     }
@@ -1960,7 +2108,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const txnExportExcel = $('txnExportExcel');
     if (txnExportExcel) {
         txnExportExcel.addEventListener('click', function() {
-            const data = state.transactions.map(t => ({
+            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)).map(t => ({
                 ID: t.customId || t.id,
                 Date: t.date,
                 Route: t.route,
@@ -1969,9 +2117,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 Cheque: t.cheque || 0,
                 Credit: t.credit || 0,
                 Banked: t.banked || 0,
-                Expense: t.expense || 0,
-                Petrol: t.petrol || 0,
-                KM: t.km || '',
                 Notes: t.notes || ''
             }));
             const ws = XLSX.utils.json_to_sheet(data);
@@ -1992,12 +2137,12 @@ document.addEventListener('DOMContentLoaded', function() {
             doc.setFontSize(10);
             doc.text('Generated: ' + new Date().toLocaleString(), 14, 28);
 
-            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Credit', 'Banked', 'Expense'];
-            const rows = state.transactions.slice(0, 30).map(t => [
+            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
+            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Credit', 'Banked'];
+            const rows = data.slice(0, 30).map(t => [
                 t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
                 (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2),
-                (t.credit || 0).toFixed(2), (t.banked || 0).toFixed(2),
-                (t.expense || 0).toFixed(2)
+                (t.credit || 0).toFixed(2), (t.banked || 0).toFixed(2)
             ]);
 
             if (doc.autoTable) {
@@ -2243,128 +2388,108 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- EXPENSE FORM MODAL EVENTS ---
+    const expenseForm = $('expenseForm');
+    if (expenseForm) {
+        expenseForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const editId = $('expenseEditId') ? $('expenseEditId').value : '';
+            const date = $('expDate') ? $('expDate').value : '';
+            const route = $('expRoute') ? $('expRoute').value : '';
+            const amount = parseFloat($('expAmount') ? $('expAmount').value : 0) || 0;
+            const petrol = parseFloat($('expPetrol') ? $('expPetrol').value : 0) || 0;
+            const reason = $('expReason') ? $('expReason').value.trim() : '';
+            const driver = $('expDriver') ? $('expDriver').value.trim() : '';
+            const notes = $('expNotes') ? $('expNotes').value.trim() : '';
+
+            if (!date) {
+                showToast('Please select a date', 'warning');
+                return;
+            }
+            if (!route) {
+                showToast('Please select a route', 'warning');
+                return;
+            }
+            if (amount <= 0 && petrol <= 0) {
+                showToast('Please enter at least an Expense Amount or Petrol', 'warning');
+                return;
+            }
+
+            const data = {
+                date: date,
+                route: route,
+                customer: null,
+                cash: 0,
+                cheque: 0,
+                chequeNo: null,
+                bank: null,
+                branch: null,
+                chequeDate: null,
+                credit: 0,
+                advance: 0,
+                expense: amount,
+                expenseReason: reason || null,
+                petrol: petrol,
+                km: null,
+                banked: 0,
+                driver: driver || null,
+                notes: notes || null,
+                chequeStatus: 'pending',
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (editId) {
+                    await db.collection('transactions').doc(editId).update(data);
+                    showToast('Expense updated successfully!');
+                } else {
+                    data.id = generateId();
+                    data.createdAt = new Date().toISOString();
+                    await db.collection('transactions').add(data);
+                    showToast('Expense added successfully!');
+                }
+                const modal = bootstrap.Modal.getInstance($('expenseFormModal'));
+                if (modal) modal.hide();
+                await loadAllData();
+                renderAll();
+                const rePage = $('page-route-expenses');
+                if (rePage && rePage.classList.contains('active')) {
+                    renderRouteExpenses();
+                }
+            } catch (err) {
+                showToast('Error: ' + err.message, 'danger');
+                console.error(err);
+            }
+        });
+    }
+
+    // --- Add Expense Button ---
     const reAddExpenseBtn = $('reAddExpenseBtn');
     if (reAddExpenseBtn) {
         reAddExpenseBtn.addEventListener('click', function() {
-            const route = $('reRouteFilter') ? $('reRouteFilter').value : '';
-            navigateTo('transactions');
-            setTimeout(() => {
-                const txnRoute = $('txnRoute');
-                const txnType = $('txnType');
-                if (txnRoute && route) txnRoute.value = route;
-                if (txnType) {
-                    txnType.value = 'expense';
-                    // Also set the radio button
-                    document.querySelectorAll('input[name="txnType"]').forEach(radio => {
-                        radio.checked = (radio.value === 'expense');
-                    });
-                    updateFormVisibility();
-                }
-                const title = $('txnFormTitle');
-                if (title) title.textContent = 'Add Expense' + (route ? ' for ' + route : '');
-                const expenseField = $('txnExpense');
-                if (expenseField) expenseField.focus();
-            }, 300);
-        });
-    }
+            const modal = new bootstrap.Modal($('expenseFormModal'));
+            const form = $('expenseForm');
+            const editId = $('expenseEditId');
+            const title = $('expenseFormTitle');
+            const saveBtn = $('expSaveBtn');
 
-    // Export Excel for Route Expenses
-    const reExportExcel = $('reExportExcel');
-    if (reExportExcel) {
-        reExportExcel.addEventListener('click', function() {
-            const rows = document.querySelectorAll('#reTableBody tr');
-            if (!rows.length || rows[0].textContent.includes('No expenses')) {
-                return showToast('No data to export', 'warning');
-            }
-            const data = [];
-            const headers = ['Date', 'Route', 'Type', 'Amount', 'Reason', 'Driver', 'Notes'];
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 7) {
-                    data.push({
-                        [headers[0]]: cells[0].textContent.trim(),
-                        [headers[1]]: cells[1].textContent.trim(),
-                        [headers[2]]: cells[2].textContent.trim(),
-                        [headers[3]]: cells[3].textContent.trim(),
-                        [headers[4]]: cells[4].textContent.trim(),
-                        [headers[5]]: cells[5].textContent.trim(),
-                        [headers[6]]: cells[6].textContent.trim()
-                    });
-                }
-            });
-            if (data.length === 0) return showToast('No data to export', 'warning');
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
-            XLSX.writeFile(wb, `Expenses_${getToday()}.xlsx`);
-            showToast('Excel exported!');
-        });
-    }
+            form.reset();
+            editId.value = '';
+            title.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Expense';
+            saveBtn.textContent = 'Save';
 
-    // Export PDF for Route Expenses
-    const reExportPDF = $('reExportPDF');
-    if (reExportPDF) {
-        reExportPDF.addEventListener('click', function() {
-            const content = document.querySelector('#reTableBody');
-            if (!content || content.innerHTML.includes('No expenses')) {
-                return showToast('No data to export', 'warning');
-            }
-            const win = window.open('', '_blank');
-            if (win) {
-                win.document.write(`
-                        <html><head><title>Expenses Report</title>
-                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-                        <style>body{padding:40px;}</style>
-                        </head><body>
-                        <h4>Route Expenses Report</h4>
-                        <p>Generated: ${new Date().toLocaleString()}</p>
-                        <table class="table table-bordered">
-                            <thead><tr><th>Date</th><th>Route</th><th>Type</th><th>Amount</th><th>Reason</th><th>Driver</th><th>Notes</th></tr></thead>
-                            <tbody>${document.querySelector('#reTableBody').innerHTML}</tbody>
-                        </table>
-                        <p><strong>Total: ${document.getElementById('reTotalAmount')?.textContent || 'Rs. 0.00'}</strong></p>
-                        <p><strong>Total Expense: ${document.getElementById('reTotalExpense')?.textContent || 'Rs. 0.00'}</strong></p>
-                        <p><strong>Total Petrol: ${document.getElementById('reTotalPetrol')?.textContent || 'Rs. 0.00'}</strong></p>
-                        <script>
-                            setTimeout(() => window.print(), 500);
-                        <\/script>
-                        </body></html>
-                    `);
-                win.document.close();
-            }
-            showToast('PDF exported!');
-        });
-    }
+            const dateField = $('expDate');
+            if (dateField) dateField.value = getToday();
 
-    // Print Route Expenses
-    const rePrintBtn = $('rePrintBtn');
-    if (rePrintBtn) {
-        rePrintBtn.addEventListener('click', function() {
-            const content = document.querySelector('#reTableBody');
-            if (!content || content.innerHTML.includes('No expenses')) {
-                return showToast('No data to print', 'warning');
+            const routeFilter = $('reRouteFilter');
+            if (routeFilter && routeFilter.value) {
+                const routeField = $('expRoute');
+                if (routeField) routeField.value = routeFilter.value;
             }
-            const win = window.open('', '_blank');
-            if (win) {
-                win.document.write(`
-                        <html><head><title>Expenses Report</title>
-                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-                        <style>body{padding:40px;}</style>
-                        </head><body>
-                        <h4>Route Expenses Report</h4>
-                        <p>Generated: ${new Date().toLocaleString()}</p>
-                        <table class="table table-bordered">
-                            <thead><tr><th>Date</th><th>Route</th><th>Type</th><th>Amount</th><th>Reason</th><th>Driver</th><th>Notes</th></tr></thead>
-                            <tbody>${document.querySelector('#reTableBody').innerHTML}</tbody>
-                        </table>
-                        <p><strong>Total: ${document.getElementById('reTotalAmount')?.textContent || 'Rs. 0.00'}</strong></p>
-                        <script>
-                            setTimeout(() => window.print(), 500);
-                        <\/script>
-                        </body></html>
-                    `);
-                win.document.close();
-            }
+
+            populateExpenseRouteSelect();
+            modal.show();
         });
     }
 
@@ -2887,7 +3012,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Watch for route expenses page activation ---
     const observer = new MutationObserver(function() {
-        const rePage = document.getElementById('page-route-expenses');
+        const rePage = $('page-route-expenses');
         if (rePage && rePage.classList.contains('active')) {
             populateRouteExpenseFilter();
             renderRouteExpenses();
@@ -2900,6 +3025,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize form visibility
     updateFormVisibility();
 
+    console.log('✅ JDMS App initialized - Expenses separated from Transactions');
 });
 
 // ================================================================
@@ -2907,7 +3033,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v2.0 - Full Complete with Route Expenses');
+console.log('🚀 JDMS v2.0 - Full Complete with Expenses Module');
 console.log('📦 Jayasinghe Distributors Management System');
-console.log('🔷 Features: Routes, Route Expenses (with filters), Reports, Cheques, Customers');
+console.log('🔷 Features: Income, Bank Transfer, Route Expenses (CRUD)');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
