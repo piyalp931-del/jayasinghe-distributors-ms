@@ -1,7 +1,7 @@
-```javascript
 // ================================================================
 // assets/js/app.js - Main Application Logic (FULL COMPLETE)
-// Supports Multi-Payment Transactions (Cash, Cheque, Bank Transfer)
+// Supports Multi-Payment (Cash, Cheque, Bank, Credit) with Edit
+// Route-based Customer Filtering, Balance Tracking
 // ================================================================
 
 // ================================================================
@@ -16,7 +16,6 @@ const state = {
     cheques: [],
     users: [],
     settings: { companyName: 'Jayasinghe Distributors', currency: 'LKR', dateFormat: 'DD/MM/YYYY' },
-    editing: { transaction: null, customer: null, route: null, user: null },
     darkMode: localStorage.getItem('jdms-dark') === 'true',
     chartInstance: null,
 };
@@ -113,7 +112,7 @@ function updateLastUpdated() {
 }
 
 // ================================================================
-// LOGOUT FUNCTION
+// LOGOUT
 // ================================================================
 async function performLogout() {
     const ok = await showConfirm('Logout', 'Are you sure you want to logout?');
@@ -121,7 +120,6 @@ async function performLogout() {
     try {
         await auth.signOut();
         showToast('Logged out successfully');
-
         state.currentUser = null;
         state.userRole = 'viewer';
         state.transactions = [];
@@ -129,19 +127,16 @@ async function performLogout() {
         state.routes = [];
         state.cheques = [];
         state.users = [];
-
         const loginPage = $('loginPage');
         const mainApp = $('mainApp');
         if (loginPage) loginPage.style.display = 'flex';
         if (mainApp) mainApp.style.display = 'none';
-
         const avatar = $('userAvatar');
         if (avatar) avatar.textContent = 'U';
         const displayNameEl = $('userDisplayName');
         if (displayNameEl) displayNameEl.textContent = 'User';
         const emailDisplay = $('userEmailDisplay');
         if (emailDisplay) emailDisplay.textContent = 'user@example.com';
-
     } catch (err) {
         showToast('Error during logout: ' + err.message, 'danger');
         console.error('Logout error:', err);
@@ -213,23 +208,19 @@ function checkAuth() {
 }
 
 // ================================================================
-// PROFILE PAGE
+// PROFILE
 // ================================================================
 function updateProfilePage(user, displayName) {
     if (!user) return;
-
     const avatar = $('profileAvatar');
     if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
-
     const displayNameEl = $('profileDisplayName');
     if (displayNameEl) displayNameEl.textContent = displayName;
-
     const emailEls = ['profileEmail', 'profileEmail2'];
     emailEls.forEach(id => {
         const el = $(id);
         if (el) el.textContent = user.email || '-';
     });
-
     const roleEls = ['profileRoleBadge', 'profileRole2'];
     roleEls.forEach(id => {
         const el = $(id);
@@ -238,27 +229,21 @@ function updateProfilePage(user, displayName) {
             el.textContent = role;
         }
     });
-
     const userIdEl = $('profileUserId');
     if (userIdEl) userIdEl.textContent = user.uid || '-';
-
     db.collection('users').doc(user.uid).get().then(doc => {
         if (doc.exists) {
             const data = doc.data();
             const createdEl = $('profileCreated');
             if (createdEl) createdEl.textContent = data.created ? formatDate(data.created) : '-';
-
             const lastLoginEl = $('profileLastLogin');
             if (lastLoginEl) lastLoginEl.textContent = data.lastLogin ? new Date(data.lastLogin).toLocaleString() : '-';
         }
-    }).catch(() => { /* ignore */ });
-
+    }).catch(() => {});
     const totalTxnsEl = $('profileTotalTxns');
     if (totalTxnsEl) totalTxnsEl.textContent = state.transactions.length;
-
     const totalCustomersEl = $('profileTotalCustomers');
     if (totalCustomersEl) totalCustomersEl.textContent = state.customers.length;
-
     const totalChequesEl = $('profileTotalCheques');
     if (totalChequesEl) totalChequesEl.textContent = state.cheques.length;
 }
@@ -269,26 +254,16 @@ function updateProfilePage(user, displayName) {
 async function changePassword(currentPassword, newPassword) {
     try {
         const user = auth.currentUser;
-        if (!user) {
-            throw new Error('No user logged in');
-        }
-
-        const credential = firebase.auth.EmailAuthProvider.credential(
-            user.email,
-            currentPassword
-        );
+        if (!user) throw new Error('No user logged in');
+        const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
         await user.reauthenticateWithCredential(credential);
         await user.updatePassword(newPassword);
-
         showToast('Password changed successfully!', 'success');
         return true;
     } catch (err) {
         let message = err.message;
-        if (err.code === 'auth/wrong-password') {
-            message = 'Current password is incorrect';
-        } else if (err.code === 'auth/requires-recent-login') {
-            message = 'Please login again before changing password';
-        }
+        if (err.code === 'auth/wrong-password') message = 'Current password is incorrect';
+        else if (err.code === 'auth/requires-recent-login') message = 'Please login again before changing password';
         throw new Error(message);
     }
 }
@@ -324,20 +299,16 @@ async function loadAllData() {
         const txnSnap = await db.collection('transactions').orderBy('date', 'desc').get();
         state.transactions = txnSnap.docs.map(d => {
             const data = d.data();
-            // Ensure payments array exists for backward compatibility
+            // Ensure payments array
             if (!data.payments || !Array.isArray(data.payments)) {
                 data.payments = [];
-                // Convert legacy fields to payments
-                if (parseFloat(data.cash) > 0) {
-                    data.payments.push({ mode: 'cash', amount: parseFloat(data.cash) });
-                }
+                if (parseFloat(data.cash) > 0) data.payments.push({ mode: 'cash', amount: parseFloat(data.cash) });
                 if (parseFloat(data.cheque) > 0) {
                     data.payments.push({
                         mode: 'cheque',
                         amount: parseFloat(data.cheque),
                         chequeNo: data.chequeNo || '',
                         bank: data.bank || '',
-                        branch: data.branch || '',
                         chequeDate: data.chequeDate || ''
                     });
                 }
@@ -349,8 +320,13 @@ async function loadAllData() {
                         ref: data.transferRef || ''
                     });
                 }
-                // Save back to doc for future consistency (optional, but we don't auto-save here)
-                // We will save on next update.
+                if (parseFloat(data.credit) > 0) {
+                    data.payments.push({
+                        mode: 'credit',
+                        amount: parseFloat(data.credit),
+                        note: data.creditNote || ''
+                    });
+                }
             }
             return {
                 ...data,
@@ -409,11 +385,9 @@ async function loadAllData() {
 
         renderAll();
         updateTopbarStats();
-
         if (state.currentUser) {
             updateProfilePage(state.currentUser, state.currentUser.email.split('@')[0] || 'User');
         }
-
     } catch (e) {
         console.error('Load error:', e);
         showToast('Error loading data: ' + e.message, 'danger');
@@ -443,6 +417,13 @@ function renderAll() {
     if (rePage && rePage.classList.contains('active')) {
         renderRouteExpenses();
     }
+    // Re-apply customer filter if route changes
+    const routeSelect = $('txnRoute');
+    if (routeSelect) {
+        routeSelect.addEventListener('change', function() {
+            filterCustomersByRoute(this.value);
+        });
+    }
 }
 
 // ================================================================
@@ -466,6 +447,7 @@ function populateSelects() {
         }
     });
 
+    // Populate customers initially (all)
     const custSel = $('txnCustomer');
     if (custSel) {
         const current = custSel.value;
@@ -479,6 +461,23 @@ function populateSelects() {
         if (current && Array.from(custSel.options).some(o => o.value === current)) {
             custSel.value = current;
         }
+    }
+}
+
+function filterCustomersByRoute(routeName) {
+    const custSel = $('txnCustomer');
+    if (!custSel) return;
+    const current = custSel.value;
+    custSel.innerHTML = '<option value="">Select Customer</option>';
+    const filtered = routeName ? state.customers.filter(c => c.route === routeName) : state.customers;
+    filtered.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name + (c.phone ? ' (' + c.phone + ')' : '');
+        custSel.appendChild(opt);
+    });
+    if (current && Array.from(custSel.options).some(o => o.value === current)) {
+        custSel.value = current;
     }
 }
 
@@ -561,7 +560,6 @@ function populateExpenseRouteSelect() {
 function renderRouteExpenses() {
     const tbody = $('reTableBody');
     if (!tbody) return;
-
     const routeFilter = $('reRouteFilter');
     const dateFrom = $('reDateFrom');
     const dateTo = $('reDateTo');
@@ -650,7 +648,7 @@ function renderRouteExpenses() {
 }
 
 // ================================================================
-// EXPENSE CRUD FUNCTIONS
+// EXPENSE CRUD
 // ================================================================
 window.editExpense = function(docId) {
     const txn = state.transactions.find(t => t.docId === docId);
@@ -658,7 +656,6 @@ window.editExpense = function(docId) {
         showToast('Expense not found', 'danger');
         return;
     }
-
     const modal = new bootstrap.Modal(document.getElementById('expenseFormModal'));
     const form = document.getElementById('expenseForm');
     const editId = document.getElementById('expenseEditId');
@@ -688,10 +685,8 @@ window.viewExpenseDetail = function(docId) {
         showToast('Expense not found', 'danger');
         return;
     }
-
     const body = document.getElementById('expenseDetailBody');
     const editBtn = document.getElementById('expenseEditFromModal');
-
     const expAmt = parseFloat(txn.expense) || 0;
     const petAmt = parseFloat(txn.petrol) || 0;
     const type = (expAmt > 0 && petAmt > 0) ? 'Both' : (expAmt > 0 ? 'Expense' : 'Petrol');
@@ -826,7 +821,7 @@ function renderRecentTransactions() {
         return;
     }
     container.innerHTML = recent.map(t => {
-        const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0);
+        const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0) + (parseFloat(t.credit) || 0);
         return `
             <div class="d-flex justify-content-between align-items-center py-2 border-bottom" style="border-color:var(--border)!important;">
                 <div>
@@ -883,9 +878,12 @@ function renderDashboardChart() {
 }
 
 // ================================================================
-// TRANSACTIONS CRUD (Multi-Payment Support)
+// TRANSACTIONS - Multi-Payment with Edit
 // ================================================================
 let currentTxnTab = 'all';
+
+// Global payments array for UI
+let currentPayments = [];
 
 function renderTransactions() {
     const tbody = $('txnTableBody');
@@ -918,6 +916,8 @@ function renderTransactions() {
         filtered = filtered.filter(t => (t.cheque || 0) > 0);
     } else if (tab === 'transfer') {
         filtered = filtered.filter(t => (t.banked || 0) > 0 && (t.cash || 0) === 0 && (t.cheque || 0) === 0);
+    } else if (tab === 'credit') {
+        filtered = filtered.filter(t => (t.credit || 0) > 0);
     }
 
     const countEl = $('txnCount');
@@ -927,14 +927,15 @@ function renderTransactions() {
         const cash = parseFloat(t.cash) || 0;
         const cheque = parseFloat(t.cheque) || 0;
         const banked = parseFloat(t.banked) || 0;
-        return s + cash + cheque + banked;
+        const credit = parseFloat(t.credit) || 0;
+        return s + cash + cheque + banked + credit;
     }, 0);
     const totalEl = $('txnTotalAmount');
     if (totalEl) totalEl.textContent = 'Total: ' + formatCurrency(totalAmount);
 
     if (!filtered.length) {
         tbody.innerHTML =
-        `<tr><td colspan="7" class="text-center text-muted py-4">No transactions found</td></tr>`;
+            `<tr><td colspan="7" class="text-center text-muted py-4">No transactions found</td></tr>`;
         return;
     }
 
@@ -946,7 +947,7 @@ function renderTransactions() {
                 return `<span class="payment-badge ${p.mode} me-1">${label} ${formatCurrency(p.amount)}</span>`;
             }).join(' ');
         } else {
-            // Fallback to legacy fields
+            // Fallback
             const parts = [];
             if (parseFloat(t.cash) > 0) parts.push(
                 `<span class="payment-badge cash me-1">Cash ${formatCurrency(t.cash)}</span>`);
@@ -954,9 +955,11 @@ function renderTransactions() {
                 `<span class="payment-badge cheque me-1">Cheque ${formatCurrency(t.cheque)}</span>`);
             if (parseFloat(t.banked) > 0) parts.push(
                 `<span class="payment-badge bank me-1">Bank ${formatCurrency(t.banked)}</span>`);
+            if (parseFloat(t.credit) > 0) parts.push(
+                `<span class="payment-badge credit me-1">Credit ${formatCurrency(t.credit)}</span>`);
             paymentsHtml = parts.join(' ');
         }
-        const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0);
+        const total = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0) + (parseFloat(t.credit) || 0);
         return `
                 <tr>
                     <td><code style="font-size:12px;">${t.customId || t.id || 'N/A'}</code></td>
@@ -989,7 +992,483 @@ window.deleteTransaction = async function(docId) {
 };
 
 // ================================================================
-// CUSTOMERS CRUD
+// PAYMENTS UI FUNCTIONS
+// ================================================================
+function renderPaymentsUI(paymentsArray) {
+    const container = $('paymentsList');
+    const totalSpan = $('paymentTotal');
+    const countSpan = $('paymentCount');
+    if (!container) return;
+
+    currentPayments = paymentsArray || [];
+
+    if (currentPayments.length === 0) {
+        container.innerHTML = `<div class="text-muted small" id="noPaymentsMsg">No payments added yet.</div>`;
+        if (totalSpan) totalSpan.textContent = 'Rs. 0.00';
+        if (countSpan) countSpan.textContent = '0 payments';
+        return;
+    }
+
+    let html = '';
+    let total = 0;
+    currentPayments.forEach((p, idx) => {
+        total += p.amount;
+        let modeLabel = p.mode.charAt(0).toUpperCase() + p.mode.slice(1);
+        let details = '';
+        if (p.mode === 'cheque') {
+            details = ` ${p.chequeNo || ''} ${p.bank || ''}`.trim();
+        } else if (p.mode === 'bank') {
+            details = ` ${p.bankName || ''} ${p.ref || ''}`.trim();
+        } else if (p.mode === 'credit') {
+            details = ` ${p.note || 'Bill'}`.trim();
+        }
+        html += `
+                <div class="payment-detail-row">
+                    <div class="pay-info">
+                        <span class="payment-badge ${p.mode}">${modeLabel}</span>
+                        <span class="ms-2">${formatCurrency(p.amount)}</span>
+                        ${details ? `<span class="text-muted small ms-2">(${details})</span>` : ''}
+                    </div>
+                    <div>
+                        <button type="button" class="payment-edit-btn edit-payment" data-index="${idx}" title="Edit Payment"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-payment" data-index="${idx}"><i class="bi bi-x-circle"></i></button>
+                    </div>
+                </div>
+            `;
+    });
+
+    container.innerHTML = html;
+    if (totalSpan) totalSpan.textContent = formatCurrency(total);
+    if (countSpan) countSpan.textContent = currentPayments.length + ' payments';
+
+    // Remove handlers
+    container.querySelectorAll('.remove-payment').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const idx = parseInt(this.dataset.index);
+            currentPayments.splice(idx, 1);
+            renderPaymentsUI(currentPayments);
+            updatePaymentHiddenFields();
+        });
+    });
+
+    // Edit handlers - open a small inline edit or just re-populate the add form
+    container.querySelectorAll('.edit-payment').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const idx = parseInt(this.dataset.index);
+            const payment = currentPayments[idx];
+            // Remove the payment and populate the form
+            currentPayments.splice(idx, 1);
+            renderPaymentsUI(currentPayments);
+            // Fill the add form with payment details
+            $('paymentModeSelect').value = payment.mode;
+            $('paymentAmount').value = payment.amount;
+            if (payment.mode === 'cheque') {
+                $('paymentChequeNo').value = payment.chequeNo || '';
+                $('paymentBank').value = payment.bank || '';
+                $('paymentChequeDate').value = payment.chequeDate || '';
+                $('chequePaymentFields').style.display = 'flex';
+                $('bankPaymentFields').style.display = 'none';
+                $('creditPaymentFields').style.display = 'none';
+            } else if (payment.mode === 'bank') {
+                $('paymentBankName').value = payment.bankName || '';
+                $('paymentRef').value = payment.ref || '';
+                $('bankPaymentFields').style.display = 'flex';
+                $('chequePaymentFields').style.display = 'none';
+                $('creditPaymentFields').style.display = 'none';
+            } else if (payment.mode === 'credit') {
+                $('paymentCreditNote').value = payment.note || '';
+                $('creditPaymentFields').style.display = 'flex';
+                $('chequePaymentFields').style.display = 'none';
+                $('bankPaymentFields').style.display = 'none';
+            } else {
+                $('chequePaymentFields').style.display = 'none';
+                $('bankPaymentFields').style.display = 'none';
+                $('creditPaymentFields').style.display = 'none';
+            }
+            // Trigger change event to show correct fields
+            $('paymentModeSelect').dispatchEvent(new Event('change'));
+            showToast('Edit payment details, then click Add to update', 'info');
+        });
+    });
+}
+
+function updatePaymentHiddenFields() {
+    let totalCash = 0,
+        totalCheque = 0,
+        totalBanked = 0,
+        totalCredit = 0;
+    currentPayments.forEach(p => {
+        if (p.mode === 'cash') totalCash += p.amount;
+        else if (p.mode === 'cheque') totalCheque += p.amount;
+        else if (p.mode === 'bank') totalBanked += p.amount;
+        else if (p.mode === 'credit') totalCredit += p.amount;
+    });
+    $('txnCash').value = totalCash.toFixed(2);
+    $('txnCheque').value = totalCheque.toFixed(2);
+    $('txnBanked').value = totalBanked.toFixed(2);
+    $('txnCredit').value = totalCredit.toFixed(2);
+}
+
+// ================================================================
+// EDIT TRANSACTION (Multi-Payment)
+// ================================================================
+window.editTransaction = function(docId) {
+    const txn = state.transactions.find(t => t.docId === docId);
+    if (!txn) {
+        showToast('Transaction not found', 'danger');
+        return;
+    }
+
+    // If expense, route to expense edit
+    if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
+        window.editExpense(docId);
+        return;
+    }
+
+    // Fill basic fields
+    $('txnDate').value = txn.date || getToday();
+    $('txnRoute').value = txn.route || '';
+    // Trigger route change to filter customers
+    filterCustomersByRoute(txn.route);
+    $('txnCustomer').value = txn.customer || '';
+    $('txnDriver').value = txn.driver || '';
+    $('txnNotes').value = txn.notes || '';
+    $('txnEditId').value = docId;
+    $('txnUpdateBtn').style.display = 'inline-block';
+    $('txnDeleteBtn').style.display = 'inline-block';
+    $('txnSaveBtn').textContent = 'Update';
+    $('txnFormTitle').textContent = 'Edit Transaction';
+
+    // Load payments
+    let paymentList = [];
+    if (txn.payments && Array.isArray(txn.payments) && txn.payments.length > 0) {
+        paymentList = txn.payments.map(p => ({ ...p }));
+    } else {
+        // Legacy conversion
+        if (parseFloat(txn.cash) > 0) paymentList.push({ mode: 'cash', amount: parseFloat(txn.cash) });
+        if (parseFloat(txn.cheque) > 0) {
+            paymentList.push({
+                mode: 'cheque',
+                amount: parseFloat(txn.cheque),
+                chequeNo: txn.chequeNo || '',
+                bank: txn.bank || '',
+                chequeDate: txn.chequeDate || ''
+            });
+        }
+        if (parseFloat(txn.banked) > 0) {
+            paymentList.push({
+                mode: 'bank',
+                amount: parseFloat(txn.banked),
+                bankName: txn.transferBank || '',
+                ref: txn.transferRef || ''
+            });
+        }
+        if (parseFloat(txn.credit) > 0) {
+            paymentList.push({
+                mode: 'credit',
+                amount: parseFloat(txn.credit),
+                note: txn.creditNote || ''
+            });
+        }
+    }
+    renderPaymentsUI(paymentList);
+    updatePaymentHiddenFields();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// ================================================================
+// TRANSACTION FORM SUBMIT (with payments)
+// ================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // ============================================================
+    // PAYMENTS UI SETUP
+    // ============================================================
+    const addPaymentBtn = $('addPaymentBtn');
+    if (addPaymentBtn) {
+        addPaymentBtn.addEventListener('click', function() {
+            const mode = $('paymentModeSelect').value;
+            const amount = parseFloat($('paymentAmount').value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount', 'warning');
+                return;
+            }
+
+            let payment = { mode, amount };
+
+            if (mode === 'cheque') {
+                const chequeNo = $('paymentChequeNo').value.trim();
+                const bank = $('paymentBank').value.trim();
+                const chequeDate = $('paymentChequeDate').value;
+                if (!chequeNo || !bank) {
+                    showToast('Please enter Cheque No. and Bank for Cheque payments', 'warning');
+                    return;
+                }
+                payment.chequeNo = chequeNo;
+                payment.bank = bank;
+                payment.chequeDate = chequeDate || null;
+                // Clear fields
+                $('paymentChequeNo').value = '';
+                $('paymentBank').value = '';
+                $('paymentChequeDate').value = '';
+            } else if (mode === 'bank') {
+                const bankName = $('paymentBankName').value.trim();
+                const ref = $('paymentRef').value.trim();
+                if (!bankName || !ref) {
+                    showToast('Please enter Bank Name and Reference for Bank Transfer', 'warning');
+                    return;
+                }
+                payment.bankName = bankName;
+                payment.ref = ref;
+                $('paymentBankName').value = '';
+                $('paymentRef').value = '';
+            } else if (mode === 'credit') {
+                const note = $('paymentCreditNote').value.trim() || 'Bill';
+                payment.note = note;
+                $('paymentCreditNote').value = '';
+            }
+
+            currentPayments.push(payment);
+            $('paymentAmount').value = '';
+            renderPaymentsUI(currentPayments);
+            updatePaymentHiddenFields();
+            showToast('Payment added', 'success');
+        });
+    }
+
+    // Toggle payment fields
+    const paymentModeSelect = $('paymentModeSelect');
+    if (paymentModeSelect) {
+        paymentModeSelect.addEventListener('change', function() {
+            const val = this.value;
+            const chequeFields = $('chequePaymentFields');
+            const bankFields = $('bankPaymentFields');
+            const creditFields = $('creditPaymentFields');
+            if (chequeFields) chequeFields.style.display = (val === 'cheque') ? 'flex' : 'none';
+            if (bankFields) bankFields.style.display = (val === 'bank') ? 'flex' : 'none';
+            if (creditFields) creditFields.style.display = (val === 'credit') ? 'flex' : 'none';
+        });
+        paymentModeSelect.dispatchEvent(new Event('change'));
+    }
+
+    // ============================================================
+    // TRANSACTION FORM SUBMIT
+    // ============================================================
+    const transactionForm = $('transactionForm');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (currentPayments.length === 0) {
+                showToast('Please add at least one payment', 'warning');
+                return;
+            }
+
+            const route = $('txnRoute').value;
+            if (!route) {
+                showToast('Please select a route', 'warning');
+                return;
+            }
+
+            // Build data
+            const data = {
+                date: $('txnDate').value,
+                route: route,
+                customer: $('txnCustomer').value || null,
+                driver: $('txnDriver').value || null,
+                notes: $('txnNotes').value || null,
+                payments: currentPayments.map(p => ({ ...p })),
+                cash: parseFloat($('txnCash').value) || 0,
+                cheque: parseFloat($('txnCheque').value) || 0,
+                banked: parseFloat($('txnBanked').value) || 0,
+                credit: parseFloat($('txnCredit').value) || 0,
+                advance: 0,
+                expense: 0,
+                petrol: 0,
+                chequeStatus: 'pending',
+                updatedAt: new Date().toISOString()
+            };
+
+            // Extract cheque details if any
+            const chequePay = currentPayments.find(p => p.mode === 'cheque');
+            if (chequePay) {
+                data.chequeNo = chequePay.chequeNo || null;
+                data.bank = chequePay.bank || null;
+                data.chequeDate = chequePay.chequeDate || null;
+            } else {
+                data.chequeNo = null;
+                data.bank = null;
+                data.chequeDate = null;
+            }
+
+            const bankPay = currentPayments.find(p => p.mode === 'bank');
+            if (bankPay) {
+                data.transferBank = bankPay.bankName || null;
+                data.transferRef = bankPay.ref || null;
+            } else {
+                data.transferBank = null;
+                data.transferRef = null;
+            }
+
+            const creditPay = currentPayments.find(p => p.mode === 'credit');
+            if (creditPay) {
+                data.creditNote = creditPay.note || null;
+            } else {
+                data.creditNote = null;
+            }
+
+            const editId = $('txnEditId').value;
+
+            (async () => {
+                try {
+                    if (editId) {
+                        await db.collection('transactions').doc(editId).update(data);
+                        showToast('Transaction updated successfully!');
+                    } else {
+                        data.id = generateId();
+                        data.createdAt = new Date().toISOString();
+                        await db.collection('transactions').add(data);
+                        showToast('Transaction saved successfully!');
+                    }
+                    // Reset form
+                    $('txnClearBtn').click();
+                    await loadAllData();
+                    renderAll();
+                    initDashboard();
+                } catch (err) {
+                    showToast('Error: ' + err.message, 'danger');
+                    console.error(err);
+                }
+            })();
+        });
+    }
+
+    // ============================================================
+    // CLEAR BUTTON
+    // ============================================================
+    const clearBtn = $('txnClearBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            const form = $('transactionForm');
+            if (form) form.reset();
+            currentPayments = [];
+            renderPaymentsUI(currentPayments);
+            updatePaymentHiddenFields();
+            $('txnEditId').value = '';
+            $('txnUpdateBtn').style.display = 'none';
+            $('txnDeleteBtn').style.display = 'none';
+            $('txnSaveBtn').textContent = 'Save';
+            $('txnFormTitle').textContent = 'Add Transaction';
+            $('txnDate').value = getToday();
+            // Reset customer filter to all
+            filterCustomersByRoute('');
+            if ($('paymentModeSelect')) {
+                $('paymentModeSelect').value = 'cash';
+                $('paymentModeSelect').dispatchEvent(new Event('change'));
+            }
+            showToast('Form cleared', 'info');
+        });
+    }
+
+    // ============================================================
+    // UPDATE BUTTON
+    // ============================================================
+    const updateBtn = $('txnUpdateBtn');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', function() {
+            if (transactionForm) transactionForm.dispatchEvent(new Event('submit'));
+        });
+    }
+
+    // ============================================================
+    // DELETE BUTTON
+    // ============================================================
+    const deleteBtn = $('txnDeleteBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            const id = $('txnEditId') ? $('txnEditId').value : '';
+            if (id) deleteTransaction(id);
+        });
+    }
+
+    // ============================================================
+    // SEARCH & FILTER
+    // ============================================================
+    const txnSearch = $('txnSearch');
+    if (txnSearch) txnSearch.addEventListener('input', renderTransactions);
+
+    const txnRefreshBtn = $('txnRefreshBtn');
+    if (txnRefreshBtn) {
+        txnRefreshBtn.addEventListener('click', async function() {
+            await loadAllData();
+            renderAll();
+            initDashboard();
+            showToast('Data refreshed!', 'info');
+        });
+    }
+
+    // ============================================================
+    // EXPORT
+    // ============================================================
+    const txnExportExcel = $('txnExportExcel');
+    if (txnExportExcel) {
+        txnExportExcel.addEventListener('click', function() {
+            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)).map(t => ({
+                ID: t.customId || t.id,
+                Date: t.date,
+                Route: t.route,
+                Customer: t.customer,
+                Cash: t.cash || 0,
+                Cheque: t.cheque || 0,
+                Banked: t.banked || 0,
+                Credit: t.credit || 0,
+                Notes: t.notes || ''
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+            XLSX.writeFile(wb, `Transactions_${getToday()}.xlsx`);
+            showToast('Excel exported!');
+        });
+    }
+
+    const txnExportPDF = $('txnExportPDF');
+    if (txnExportPDF) {
+        txnExportPDF.addEventListener('click', function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+            doc.setFontSize(16);
+            doc.text('Transaction Report', 14, 20);
+            doc.setFontSize(10);
+            doc.text('Generated: ' + new Date().toLocaleString(), 14, 28);
+
+            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
+            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Banked', 'Credit'];
+            const rows = data.slice(0, 30).map(t => [
+                t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
+                (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2),
+                (t.banked || 0).toFixed(2), (t.credit || 0).toFixed(2)
+            ]);
+
+            if (doc.autoTable) {
+                doc.autoTable({ head: [cols], body: rows, startY: 35 });
+            } else {
+                doc.text('PDF export requires jspdf-autotable plugin.', 14, 60);
+            }
+            doc.save(`Transactions_${getToday()}.pdf`);
+            showToast('PDF exported!');
+        });
+    }
+
+    const txnPrintBtn = $('txnPrintBtn');
+    if (txnPrintBtn) {
+        txnPrintBtn.addEventListener('click', function() {
+            window.print();
+        });
+    }
+});
+
+// ================================================================
+// CUSTOMERS CRUD (with Balance)
 // ================================================================
 function renderCustomers() {
     const tbody = $('custTableBody');
@@ -1014,12 +1493,14 @@ function renderCustomers() {
     const countEl = $('custCount');
     if (countEl) countEl.textContent = filtered.length + ' customers';
 
+    // Calculate balance: total amount received minus total credit given
     const balances = {};
     state.transactions.forEach(t => {
         if (t.customer) {
-            if (!balances[t.customer]) balances[t.customer] = 0;
-            const amount = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.credit) || 0);
-            balances[t.customer] += amount;
+            if (!balances[t.customer]) balances[t.customer] = { received: 0, credit: 0 };
+            const received = (parseFloat(t.cash) || 0) + (parseFloat(t.cheque) || 0) + (parseFloat(t.banked) || 0);
+            balances[t.customer].received += received;
+            balances[t.customer].credit += parseFloat(t.credit) || 0;
         }
     });
 
@@ -1028,21 +1509,25 @@ function renderCustomers() {
         return;
     }
 
-    tbody.innerHTML = filtered.map(c => `
+    tbody.innerHTML = filtered.map(c => {
+        const bal = balances[c.name] || { received: 0, credit: 0 };
+        const balance = bal.credit - bal.received; // positive means customer owes
+        return `
             <tr>
                 <td><strong>${c.name}</strong></td>
                 <td><span class="badge bg-info">${c.route || 'N/A'}</span></td>
                 <td>${c.phone || '-'}</td>
                 <td>${c.email || '-'}</td>
                 <td>${formatCurrency(c.creditLimit)}</td>
-                <td>${formatCurrency(balances[c.name] || 0)}</td>
+                <td>${formatCurrency(balance)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="editCustomer('${c.docId}')"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer('${c.docId}')"><i class="bi bi-trash"></i></button>
                     <button class="btn btn-sm btn-outline-info" onclick="showCustomerTransactions('${c.name}')"><i class="bi bi-receipt"></i></button>
                 </td>
             </tr>
-        `).join('');
+        `;
+    }).join('');
 }
 
 window.showCustomerTransactions = function(customerName) {
@@ -1278,29 +1763,20 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         let expenses = state.transactions.filter(t =>
             (parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)
         );
-
         if (routeCustomerValue) {
             const parts = routeCustomerValue.split(':');
             if (parts.length === 2 && parts[0] === 'route') {
                 expenses = expenses.filter(t => t.route === parts[1]);
             }
         }
-        if (month) {
-            expenses = expenses.filter(t => t.date && t.date.startsWith(month));
-        }
-        if (year) {
-            expenses = expenses.filter(t => t.date && t.date.startsWith(year));
-        }
-        if (date) {
-            expenses = expenses.filter(t => t.date === date);
-        }
+        if (month) expenses = expenses.filter(t => t.date && t.date.startsWith(month));
+        if (year) expenses = expenses.filter(t => t.date && t.date.startsWith(year));
+        if (date) expenses = expenses.filter(t => t.date === date);
 
         const routeMap = {};
         expenses.forEach(t => {
             const route = t.route || 'Unknown';
-            if (!routeMap[route]) {
-                routeMap[route] = { expense: 0, petrol: 0, count: 0 };
-            }
+            if (!routeMap[route]) routeMap[route] = { expense: 0, petrol: 0, count: 0 };
             routeMap[route].expense += parseFloat(t.expense) || 0;
             routeMap[route].petrol += parseFloat(t.petrol) || 0;
             routeMap[route].count++;
@@ -1309,7 +1785,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         const routes = Object.keys(routeMap);
         if (!routes.length) {
             container.innerHTML =
-                `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>No expense data found for the selected criteria</p></div>`;
+                `<div class="empty-state"><i class="bi bi-file-earmark-bar-graph"></i><p>No expense data found</p></div>`;
             return;
         }
 
@@ -1322,17 +1798,10 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                     <p class="text-muted small">${expenses.length} expense transactions found</p>
                     <table class="table table-bordered">
                         <thead>
-                            <tr>
-                                <th>Route</th>
-                                <th>Expense (Rs.)</th>
-                                <th>Petrol (Rs.)</th>
-                                <th>Total (Rs.)</th>
-                                <th>Transactions</th>
-                            </tr>
+                            <tr><th>Route</th><th>Expense (Rs.)</th><th>Petrol (Rs.)</th><th>Total (Rs.)</th><th>Transactions</th></tr>
                         </thead>
                         <tbody>
                     `;
-
         routes.forEach(route => {
             const data = routeMap[route];
             const total = data.expense + data.petrol;
@@ -1349,7 +1818,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                             </tr>
                         `;
         });
-
         html += `
                         </tbody>
                         <tfoot>
@@ -1364,7 +1832,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                     </table>
                 </div>
             `;
-
         container.innerHTML = html;
         return;
     }
@@ -1399,11 +1866,8 @@ function generateReport(type, month, year, routeCustomerValue, date) {
         if (parts.length === 2) {
             const filterType = parts[0];
             const filterValue = parts[1];
-            if (filterType === 'route') {
-                data = data.filter(t => t.route === filterValue);
-            } else if (filterType === 'customer') {
-                data = data.filter(t => t.customer === filterValue);
-            }
+            if (filterType === 'route') data = data.filter(t => t.route === filterValue);
+            else if (filterType === 'customer') data = data.filter(t => t.customer === filterValue);
         }
     }
 
@@ -1411,7 +1875,7 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     const totalCheque = data.reduce((s, t) => s + (parseFloat(t.cheque) || 0), 0);
     const totalCredit = data.reduce((s, t) => s + (parseFloat(t.credit) || 0), 0);
     const totalBanked = data.reduce((s, t) => s + (parseFloat(t.banked) || 0), 0);
-    const totalIncome = totalCash + totalCheque + totalCredit;
+    const totalIncome = totalCash + totalCheque + totalCredit + totalBanked;
 
     let filterDesc = '';
     if (type === 'daily') filterDesc = date || getToday();
@@ -1419,7 +1883,6 @@ function generateReport(type, month, year, routeCustomerValue, date) {
     else if (type === 'monthly') filterDesc = month || '';
     else if (type === 'yearly') filterDesc = year || '';
     else filterDesc = type.charAt(0).toUpperCase() + type.slice(1);
-
     if (routeCustomerValue) {
         const label = routeCustomerValue.split(':')[1] || '';
         filterDesc += (filterDesc ? ' - ' : '') + 'Filter: ' + label;
@@ -1435,8 +1898,8 @@ function generateReport(type, month, year, routeCustomerValue, date) {
                         <tr><td>Total Cash</td><td>${formatCurrency(totalCash)}</td></tr>
                         <tr><td>Total Cheque</td><td>${formatCurrency(totalCheque)}</td></tr>
                         <tr><td>Total Credit</td><td>${formatCurrency(totalCredit)}</td></tr>
+                        <tr><td>Total Bank Transfer</td><td>${formatCurrency(totalBanked)}</td></tr>
                         <tr><td><strong>Total Income</strong></td><td><strong>${formatCurrency(totalIncome)}</strong></td></tr>
-                        <tr><td>Total Banked</td><td>${formatCurrency(totalBanked)}</td></tr>
                     </tbody>
                 </table>
                 <hr />
@@ -1492,7 +1955,18 @@ function navigateTo(page) {
     closeSidebar();
 
     if (page === 'dashboard') initDashboard();
-    if (page === 'transactions') renderTransactions();
+    if (page === 'transactions') {
+        renderTransactions();
+        // Reset form if not editing
+        if (!$('txnEditId').value) {
+            $('txnClearBtn').click();
+        }
+        // Ensure customer filter works
+        const routeSelect = $('txnRoute');
+        if (routeSelect) {
+            filterCustomersByRoute(routeSelect.value);
+        }
+    }
     if (page === 'cheques') renderCheques();
     if (page === 'routes') renderRoutes();
     if (page === 'route-expenses') {
@@ -1528,7 +2002,6 @@ window.closeSidebar = closeSidebar;
 function applyRoleRestrictions() {
     const role = state.userRole;
     const isAdmin = role === 'admin';
-
     const adminItems = ['users', 'backup', 'settings', 'sample-data'];
     adminItems.forEach(page => {
         const el = qs(`.sidebar-nav .nav-item[data-page="${page}"]`);
@@ -1543,7 +2016,6 @@ let notifiedCheques = new Set();
 
 function checkChequeNotifications() {
     const today = new Date();
-
     const upcomingCheques = state.cheques.filter(c => {
         if (c.status !== 'pending') return false;
         const chqDate = new Date(c.chequeDate);
@@ -1555,9 +2027,7 @@ function checkChequeNotifications() {
     upcomingCheques.forEach(c => {
         const daysLeft = Math.ceil((new Date(c.chequeDate) - today) / (1000 * 60 * 60 * 24));
         const message = `Cheque ${c.chequeNo} (${c.customer}) due in ${daysLeft} day(s)`;
-
         showToast(`⏰ ${message}`, 'warning');
-
         try {
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
                 try {
@@ -1591,7 +2061,6 @@ function checkChequeNotifications() {
         } catch (error) {
             console.debug('Browser notifications not supported:', error.message);
         }
-
         notifiedCheques.add(c.docId + c.chequeNo);
     });
 
@@ -1732,7 +2201,7 @@ async function generateSampleData() {
 }
 
 // ================================================================
-// DOMContentLoaded - All Event Listeners (Multi-Payment Integrated)
+// DOMContentLoaded - Event Listeners (additional)
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -1808,402 +2277,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ============================================================
-    // PAYMENTS UI LOGIC
-    // ============================================================
-    let payments = [];
-
-    window.renderPaymentsUI = function(paymentsArray) {
-        const container = $('paymentsList');
-        const totalSpan = $('paymentTotal');
-        const countSpan = $('paymentCount');
-        if (!container) return;
-
-        payments = paymentsArray || [];
-
-        if (payments.length === 0) {
-            container.innerHTML = `<div class="text-muted small" id="noPaymentsMsg">No payments added yet.</div>`;
-            if (totalSpan) totalSpan.textContent = 'Rs. 0.00';
-            if (countSpan) countSpan.textContent = '0 payments';
-            return;
-        }
-
-        let html = '';
-        let total = 0;
-        payments.forEach((p, idx) => {
-            total += p.amount;
-            let modeLabel = p.mode.charAt(0).toUpperCase() + p.mode.slice(1);
-            let details = '';
-            if (p.mode === 'cheque') {
-                details = ` ${p.chequeNo || ''} ${p.bank || ''}`.trim();
-            } else if (p.mode === 'bank') {
-                details = ` ${p.bankName || ''} ${p.ref || ''}`.trim();
-            }
-            html += `
-                    <div class="payment-detail-row">
-                        <div class="pay-info">
-                            <span class="payment-badge ${p.mode}">${modeLabel}</span>
-                            <span class="ms-2">${formatCurrency(p.amount)}</span>
-                            ${details ? `<span class="text-muted small ms-2">(${details})</span>` : ''}
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-payment" data-index="${idx}">
-                            <i class="bi bi-x-circle"></i>
-                        </button>
-                    </div>
-                `;
-        });
-
-        container.innerHTML = html;
-        if (totalSpan) totalSpan.textContent = formatCurrency(total);
-        if (countSpan) countSpan.textContent = payments.length + ' payments';
-
-        container.querySelectorAll('.remove-payment').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const idx = parseInt(this.dataset.index);
-                payments.splice(idx, 1);
-                window.renderPaymentsUI(payments);
-                updatePaymentHiddenFields();
-            });
-        });
-    };
-
-    function updatePaymentHiddenFields() {
-        let totalCash = 0,
-            totalCheque = 0,
-            totalBanked = 0;
-        payments.forEach(p => {
-            if (p.mode === 'cash') totalCash += p.amount;
-            else if (p.mode === 'cheque') totalCheque += p.amount;
-            else if (p.mode === 'bank') totalBanked += p.amount;
-        });
-        const cashField = $('txnCash');
-        const chequeField = $('txnCheque');
-        const bankedField = $('txnBanked');
-        if (cashField) cashField.value = totalCash.toFixed(2);
-        if (chequeField) chequeField.value = totalCheque.toFixed(2);
-        if (bankedField) bankedField.value = totalBanked.toFixed(2);
-    }
-
-    // Add payment button
-    const addPaymentBtn = $('addPaymentBtn');
-    if (addPaymentBtn) {
-        addPaymentBtn.addEventListener('click', function() {
-            const mode = $('paymentModeSelect').value;
-            const amount = parseFloat($('paymentAmount').value);
-            if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount', 'warning');
-                return;
-            }
-
-            let payment = { mode, amount };
-
-            if (mode === 'cheque') {
-                const chequeNo = $('paymentChequeNo').value.trim();
-                const bank = $('paymentBank').value.trim();
-                const branch = $('paymentBranch').value.trim();
-                const chequeDate = $('paymentChequeDate').value;
-                if (!chequeNo || !bank) {
-                    showToast('Please enter Cheque No. and Bank for Cheque payments', 'warning');
-                    return;
-                }
-                payment.chequeNo = chequeNo;
-                payment.bank = bank;
-                payment.branch = branch || null;
-                payment.chequeDate = chequeDate || null;
-                $('paymentChequeNo').value = '';
-                $('paymentBank').value = '';
-                $('paymentBranch').value = '';
-                $('paymentChequeDate').value = '';
-            } else if (mode === 'bank') {
-                const bankName = $('paymentBankName').value.trim();
-                const ref = $('paymentRef').value.trim();
-                if (!bankName || !ref) {
-                    showToast('Please enter Bank Name and Reference for Bank Transfer', 'warning');
-                    return;
-                }
-                payment.bankName = bankName;
-                payment.ref = ref;
-                $('paymentBankName').value = '';
-                $('paymentRef').value = '';
-            }
-
-            payments.push(payment);
-            $('paymentAmount').value = '';
-            window.renderPaymentsUI(payments);
-            updatePaymentHiddenFields();
-            showToast('Payment added', 'success');
-        });
-    }
-
-    // Toggle payment fields
-    const paymentModeSelect = $('paymentModeSelect');
-    if (paymentModeSelect) {
-        paymentModeSelect.addEventListener('change', function() {
-            const val = this.value;
-            const chequeFields = $('chequePaymentFields');
-            const bankFields = $('bankPaymentFields');
-            if (chequeFields) chequeFields.style.display = (val === 'cheque') ? 'flex' : 'none';
-            if (bankFields) bankFields.style.display = (val === 'bank') ? 'flex' : 'none';
-        });
-        paymentModeSelect.dispatchEvent(new Event('change'));
-    }
-
-    // --- TRANSACTION FORM SUBMIT ---
-    const transactionForm = $('transactionForm');
-    if (transactionForm) {
-        transactionForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            if (payments.length === 0) {
-                showToast('Please add at least one payment', 'warning');
-                return;
-            }
-
-            const route = $('txnRoute').value;
-            if (!route) {
-                showToast('Please select a route', 'warning');
-                return;
-            }
-
-            // Build data object
-            const data = {
-                date: $('txnDate').value,
-                route: route,
-                customer: $('txnCustomer').value || null,
-                driver: $('txnDriver').value || null,
-                notes: $('txnNotes').value || null,
-                payments: payments.map(p => ({ ...p })),
-                // Legacy fields
-                cash: parseFloat($('txnCash').value) || 0,
-                cheque: parseFloat($('txnCheque').value) || 0,
-                banked: parseFloat($('txnBanked').value) || 0,
-                credit: 0,
-                advance: 0,
-                expense: 0,
-                petrol: 0,
-                chequeStatus: 'pending',
-                updatedAt: new Date().toISOString()
-            };
-
-            // Add cheque details if any cheque payment
-            const chequePay = payments.find(p => p.mode === 'cheque');
-            if (chequePay) {
-                data.chequeNo = chequePay.chequeNo || null;
-                data.bank = chequePay.bank || null;
-                data.branch = chequePay.branch || null;
-                data.chequeDate = chequePay.chequeDate || null;
-            } else {
-                data.chequeNo = null;
-                data.bank = null;
-                data.branch = null;
-                data.chequeDate = null;
-            }
-
-            const bankPay = payments.find(p => p.mode === 'bank');
-            if (bankPay) {
-                data.transferBank = bankPay.bankName || null;
-                data.transferRef = bankPay.ref || null;
-            } else {
-                data.transferBank = null;
-                data.transferRef = null;
-            }
-
-            const editId = $('txnEditId').value;
-
-            (async () => {
-                try {
-                    if (editId) {
-                        await db.collection('transactions').doc(editId).update(data);
-                        showToast('Transaction updated successfully!');
-                    } else {
-                        data.id = generateId();
-                        data.createdAt = new Date().toISOString();
-                        await db.collection('transactions').add(data);
-                        showToast('Transaction saved successfully!');
-                    }
-                    // Reset form
-                    $('txnClearBtn').click();
-                    await loadAllData();
-                    renderAll();
-                    initDashboard();
-                } catch (err) {
-                    showToast('Error: ' + err.message, 'danger');
-                    console.error(err);
-                }
-            })();
-        });
-    }
-
-    // --- CLEAR BUTTON ---
-    const clearBtn = $('txnClearBtn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-            const form = $('transactionForm');
-            if (form) form.reset();
-            payments = [];
-            window.renderPaymentsUI(payments);
-            updatePaymentHiddenFields();
-            $('txnEditId').value = '';
-            $('txnUpdateBtn').style.display = 'none';
-            $('txnDeleteBtn').style.display = 'none';
-            $('txnSaveBtn').textContent = 'Save';
-            $('txnFormTitle').textContent = 'Add Transaction';
-            $('txnDate').value = getToday();
-            if ($('paymentModeSelect')) $('paymentModeSelect').value = 'cash';
-            if ($('paymentModeSelect')) $('paymentModeSelect').dispatchEvent(new Event('change'));
-            showToast('Form cleared', 'info');
-        });
-    }
-
-    // --- EDIT TRANSACTION (Override) ---
-    const origEditTxn = window.editTransaction;
-    window.editTransaction = function(docId) {
-        const txn = state.transactions.find(t => t.docId === docId);
-        if (!txn) {
-            showToast('Transaction not found', 'danger');
-            return;
-        }
-
-        if (parseFloat(txn.expense) > 0 || parseFloat(txn.petrol) > 0) {
-            window.editExpense(docId);
-            return;
-        }
-
-        // Populate basic fields
-        $('txnDate').value = txn.date || getToday();
-        $('txnRoute').value = txn.route || '';
-        $('txnCustomer').value = txn.customer || '';
-        $('txnDriver').value = txn.driver || '';
-        $('txnNotes').value = txn.notes || '';
-        $('txnEditId').value = docId;
-        $('txnUpdateBtn').style.display = 'inline-block';
-        $('txnDeleteBtn').style.display = 'inline-block';
-        $('txnSaveBtn').textContent = 'Update';
-        $('txnFormTitle').textContent = 'Edit Transaction';
-
-        // Load payments
-        let paymentList = [];
-        if (txn.payments && Array.isArray(txn.payments) && txn.payments.length > 0) {
-            paymentList = txn.payments.map(p => ({ ...p }));
-        } else {
-            // Legacy conversion
-            if (parseFloat(txn.cash) > 0) paymentList.push({ mode: 'cash', amount: parseFloat(txn.cash) });
-            if (parseFloat(txn.cheque) > 0) {
-                paymentList.push({
-                    mode: 'cheque',
-                    amount: parseFloat(txn.cheque),
-                    chequeNo: txn.chequeNo || '',
-                    bank: txn.bank || '',
-                    branch: txn.branch || '',
-                    chequeDate: txn.chequeDate || ''
-                });
-            }
-            if (parseFloat(txn.banked) > 0) {
-                paymentList.push({
-                    mode: 'bank',
-                    amount: parseFloat(txn.banked),
-                    bankName: txn.transferBank || '',
-                    ref: txn.transferRef || ''
-                });
-            }
-        }
-        window.renderPaymentsUI(paymentList);
-        updatePaymentHiddenFields();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    // --- UPDATE BUTTON ---
-    const updateBtn = $('txnUpdateBtn');
-    if (updateBtn) {
-        updateBtn.addEventListener('click', function() {
-            if (transactionForm) transactionForm.dispatchEvent(new Event('submit'));
-        });
-    }
-
-    // --- DELETE BUTTON ---
-    const deleteBtn = $('txnDeleteBtn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', function() {
-            const id = $('txnEditId') ? $('txnEditId').value : '';
-            if (id) deleteTransaction(id);
-        });
-    }
-
-    // --- SEARCH & FILTER ---
-    const txnSearch = $('txnSearch');
-    if (txnSearch) txnSearch.addEventListener('input', renderTransactions);
-
-    const txnRefreshBtn = $('txnRefreshBtn');
-    if (txnRefreshBtn) {
-        txnRefreshBtn.addEventListener('click', async function() {
-            await loadAllData();
-            renderAll();
-            initDashboard();
-            showToast('Data refreshed!', 'info');
-        });
-    }
-
-    // --- EXPORT BUTTONS ---
-    const txnExportExcel = $('txnExportExcel');
-    if (txnExportExcel) {
-        txnExportExcel.addEventListener('click', function() {
-            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0)).map(t => ({
-                ID: t.customId || t.id,
-                Date: t.date,
-                Route: t.route,
-                Customer: t.customer,
-                Cash: t.cash || 0,
-                Cheque: t.cheque || 0,
-                Banked: t.banked || 0,
-                Notes: t.notes || ''
-            }));
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-            XLSX.writeFile(wb, `Transactions_${getToday()}.xlsx`);
-            showToast('Excel exported!');
-        });
-    }
-
-    const txnExportPDF = $('txnExportPDF');
-    if (txnExportPDF) {
-        txnExportPDF.addEventListener('click', function() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('landscape', 'mm', 'a4');
-            doc.setFontSize(16);
-            doc.text('Transaction Report', 14, 20);
-            doc.setFontSize(10);
-            doc.text('Generated: ' + new Date().toLocaleString(), 14, 28);
-
-            const data = state.transactions.filter(t => !(parseFloat(t.expense) > 0 || parseFloat(t.petrol) > 0));
-            const cols = ['ID', 'Date', 'Route', 'Customer', 'Cash', 'Cheque', 'Banked'];
-            const rows = data.slice(0, 30).map(t => [
-                t.customId || t.id || '', t.date || '', t.route || '', t.customer || '',
-                (t.cash || 0).toFixed(2), (t.cheque || 0).toFixed(2), (t.banked || 0).toFixed(2)
-            ]);
-
-            if (doc.autoTable) {
-                doc.autoTable({ head: [cols], body: rows, startY: 35 });
-            } else {
-                doc.text('PDF export requires jspdf-autotable plugin.', 14, 60);
-            }
-            doc.save(`Transactions_${getToday()}.pdf`);
-            showToast('PDF exported!');
-        });
-    }
-
-    const txnPrintBtn = $('txnPrintBtn');
-    if (txnPrintBtn) {
-        txnPrintBtn.addEventListener('click', function() {
-            window.print();
-        });
-    }
-
-    // --- CUSTOMERS, ROUTES, USERS, EXPENSES, REPORTS, BACKUP, SETTINGS, SAMPLE DATA ---
-    // (All these event listeners remain unchanged from previous version)
-    // They are the same as in the previous app.js, so I will include them briefly here.
-
-    // CUSTOMERS
+    // --- CUSTOMERS ---
     const customerForm = $('customerForm');
     if (customerForm) {
         customerForm.addEventListener('submit', async (e) => {
@@ -2220,6 +2294,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updatedAt: new Date().toISOString()
             };
             if (!data.name) return showToast('Name is required', 'warning');
+
             try {
                 if (editId) {
                     await db.collection('customers').doc(editId).update(data);
@@ -2253,6 +2328,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const custSearch = $('custSearch');
     if (custSearch) custSearch.addEventListener('input', renderCustomers);
+
     const custDeleteBtn = $('custDeleteBtn');
     if (custDeleteBtn) {
         custDeleteBtn.addEventListener('click', function() {
@@ -2260,10 +2336,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (id) deleteCustomer(id);
         });
     }
+
     const custRouteFilter = $('custRouteFilter');
     if (custRouteFilter) custRouteFilter.addEventListener('change', renderCustomers);
 
-    // ROUTES
+    // --- ROUTES ---
     const routeForm = $('routeForm');
     if (routeForm) {
         routeForm.addEventListener('submit', async (e) => {
@@ -2291,6 +2368,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const routeClearBtn = $('routeClearBtn');
     if (routeClearBtn) {
         routeClearBtn.addEventListener('click', function() {
@@ -2300,11 +2378,12 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Form cleared', 'info');
         });
     }
+
     const routeRefreshBtn = $('routeRefreshBtn');
     if (routeRefreshBtn) routeRefreshBtn.addEventListener('click', function() { renderRoutes();
         showToast('Routes refreshed!', 'info'); });
 
-    // USERS
+    // --- USERS ---
     const userForm = $('userForm');
     if (userForm) {
         userForm.addEventListener('submit', async (e) => {
@@ -2341,6 +2420,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const userClearBtn = $('userClearBtn');
     if (userClearBtn) {
         userClearBtn.addEventListener('click', function() {
@@ -2351,6 +2431,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Form cleared', 'info');
         });
     }
+
     const userDeleteBtn = $('userDeleteBtn');
     if (userDeleteBtn) {
         userDeleteBtn.addEventListener('click', function() {
@@ -2359,7 +2440,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // TRANSACTION TABS
+    // --- TRANSACTION TABS ---
     document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
@@ -2372,7 +2453,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const txnRouteFilter = $('txnRouteFilter');
     if (txnRouteFilter) txnRouteFilter.addEventListener('change', renderTransactions);
 
-    // ROUTE EXPENSES EVENTS
+    // --- ROUTE EXPENSES EVENTS ---
     const reFilterBtn = $('reFilterBtn');
     if (reFilterBtn) reFilterBtn.addEventListener('click', renderRouteExpenses);
     const reRefreshBtn = $('reRefreshBtn');
@@ -2390,7 +2471,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // EXPENSE FORM MODAL
+    // --- EXPENSE FORM MODAL ---
     const expenseForm = $('expenseForm');
     if (expenseForm) {
         expenseForm.addEventListener('submit', async function(e) {
@@ -2452,6 +2533,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const reAddExpenseBtn = $('reAddExpenseBtn');
     if (reAddExpenseBtn) {
         reAddExpenseBtn.addEventListener('click', function() {
@@ -2468,7 +2550,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // REPORTS
+    // --- REPORTS ---
     const reportGenerateBtn = $('reportGenerateBtn');
     if (reportGenerateBtn) {
         reportGenerateBtn.addEventListener('click', function() {
@@ -2480,6 +2562,7 @@ document.addEventListener('DOMContentLoaded', function() {
             generateReport(type, month, year, routeCustomerValue, date);
         });
     }
+
     const reportClearBtn = $('reportClearBtn');
     if (reportClearBtn) {
         reportClearBtn.addEventListener('click', function() {
@@ -2494,6 +2577,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Filters cleared', 'info');
         });
     }
+
     const reportPrintBtn = $('reportPrintBtn');
     if (reportPrintBtn) {
         reportPrintBtn.addEventListener('click', function() {
@@ -2516,6 +2600,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const reportExportPDF = $('reportExportPDF');
     if (reportExportPDF) {
         reportExportPDF.addEventListener('click', function() {
@@ -2538,6 +2623,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const reportExportExcel = $('reportExportExcel');
     if (reportExportExcel) {
         reportExportExcel.addEventListener('click', function() {
@@ -2559,13 +2645,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // CHEQUES
+    // --- CHEQUES ---
     const cheqSearch = $('cheqSearch');
     if (cheqSearch) cheqSearch.addEventListener('input', renderCheques);
     const cheqStatusFilter = $('cheqStatusFilter');
     if (cheqStatusFilter) cheqStatusFilter.addEventListener('change', renderCheques);
 
-    // BACKUP
+    // --- BACKUP ---
     let autoBackupInterval = null;
     const backupExport = $('backupExport');
     if (backupExport) {
@@ -2598,6 +2684,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const backupRestore = $('backupRestore');
     if (backupRestore) {
         backupRestore.addEventListener('click', async function() {
@@ -2629,6 +2716,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const backupAutoToggle = $('backupAutoToggle');
     if (backupAutoToggle) {
         backupAutoToggle.addEventListener('click', function() {
@@ -2645,7 +2733,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // SETTINGS
+    // --- SETTINGS ---
     const settingsForm = $('settingsForm');
     if (settingsForm) {
         settingsForm.addEventListener('submit', async (e) => {
@@ -2667,6 +2755,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     const settingsClearBtn = $('settingsClearBtn');
     if (settingsClearBtn) {
         settingsClearBtn.addEventListener('click', function() {
@@ -2677,7 +2766,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // THEME
+    // --- THEME ---
     const themeSwitch = $('settingsThemeSwitch');
     const themeToggle = $('themeToggle');
 
@@ -2693,7 +2782,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (themeSwitch) themeSwitch.addEventListener('click', function() { setTheme(!state.darkMode); });
     if (themeToggle) themeToggle.addEventListener('click', function() { setTheme(!state.darkMode); });
 
-    // LOGO
+    // --- LOGO ---
     const logoUploadBtn = $('logoUploadBtn');
     if (logoUploadBtn) logoUploadBtn.addEventListener('click', function() { if ($('logoFileInput')) $('logoFileInput')
             .click(); });
@@ -2715,6 +2804,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     async function loadLogo() {
         try {
             const doc = await db.collection('settings').doc('app').get();
@@ -2725,6 +2815,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {}
     }
     loadLogo();
+
     const logoRemoveBtn = $('logoRemoveBtn');
     if (logoRemoveBtn) {
         logoRemoveBtn.addEventListener('click', async function() {
@@ -2739,9 +2830,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // SAMPLE DATA
+    // --- SAMPLE DATA ---
     const generateSampleDataBtn = $('generateSampleDataBtn');
     if (generateSampleDataBtn) generateSampleDataBtn.addEventListener('click', generateSampleData);
+
     const clearSampleDataBtn = $('clearSampleDataBtn');
     if (clearSampleDataBtn) {
         clearSampleDataBtn.addEventListener('click', async function() {
@@ -2783,7 +2875,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // CHANGE PASSWORD
+    // --- CHANGE PASSWORD ---
     const changePasswordForm = $('changePasswordForm');
     if (changePasswordForm) {
         changePasswordForm.addEventListener('submit', async (e) => {
@@ -2823,10 +2915,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // SIDEBAR
+    // --- SIDEBAR ---
     qsa('.sidebar-nav .nav-item[data-page]').forEach(el => {
         el.addEventListener('click', function() { navigateTo(this.dataset.page); });
     });
+
     const sidebarToggle = $('sidebarToggle');
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', function() {
@@ -2836,10 +2929,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 overlay?.classList.add('open'));
         });
     }
+
     const sidebarOverlay = $('sidebarOverlay');
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
 
-    // LOGOUT
+    // --- LOGOUT ---
     const logoutBtn = $('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', performLogout);
     const topbarLogoutBtn = $('topbarLogoutBtn');
@@ -2848,7 +2942,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const topbarLogoutBtnAlt = $('topbarLogoutBtnAlt');
     if (topbarLogoutBtnAlt) topbarLogoutBtnAlt.addEventListener('click', performLogout);
 
-    // USER PROFILE & SETTINGS
+    // --- USER PROFILE & SETTINGS ---
     const userProfileBtn = $('userProfileBtn');
     if (userProfileBtn) {
         userProfileBtn.addEventListener('click', function(e) {
@@ -2858,6 +2952,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (dropdown) dropdown.hide();
         });
     }
+
     const userSettingsBtn = $('userSettingsBtn');
     if (userSettingsBtn) {
         userSettingsBtn.addEventListener('click', function(e) {
@@ -2868,7 +2963,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // KEYBOARD SHORTCUTS
+    // --- KEYBOARD SHORTCUTS ---
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 't') { e.preventDefault();
             navigateTo('transactions'); }
@@ -2879,14 +2974,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.key === 'Escape') { closeSidebar(); }
     });
 
-    // CHEQUE NOTIFICATIONS
+    // --- CHEQUE NOTIFICATIONS ---
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
     }
     setInterval(checkChequeNotifications, 300000);
     setTimeout(checkChequeNotifications, 5000);
 
-    // WATCH FOR ROUTE EXPENSES PAGE
+    // --- WATCH FOR ROUTE EXPENSES PAGE ---
     const observer = new MutationObserver(function() {
         const rePage = $('page-route-expenses');
         if (rePage && rePage.classList.contains('active')) {
@@ -2898,9 +2993,19 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(el, { attributes: true, attributeFilter: ['class'] });
     });
 
-    // Initialize UI
-    window.renderPaymentsUI([]);
-    console.log('✅ Multi-payment transactions initialized successfully');
+    // --- ROUTE CUSTOMER FILTER INIT ---
+    const routeSelect = $('txnRoute');
+    if (routeSelect) {
+        routeSelect.addEventListener('change', function() {
+            filterCustomersByRoute(this.value);
+        });
+    }
+
+    // --- INITIALIZE PAYMENTS UI ---
+    renderPaymentsUI([]);
+    updatePaymentHiddenFields();
+
+    console.log('✅ JDMS v3.0 - Multi-Payment with Route Filter and Balance');
 });
 
 // ================================================================
@@ -2908,8 +3013,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // ================================================================
 checkAuth();
 
-console.log('🚀 JDMS v3.0 - Multi-Payment Transactions');
-console.log('📦 Jayasinghe Distributors Management System');
-console.log('✅ Features: Multi-payment (Cash, Cheque, Bank Transfer), Route Expenses, Reports');
+console.log('🚀 JDMS v3.0 - Multi-Payment with Route Filter and Balance');
+console.log('📦 Features: Multi-payment (Cash, Cheque, Bank, Credit), Route filter, Balance tracking');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
-```
