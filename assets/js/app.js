@@ -1,4 +1,3 @@
-```javascript
 // ================================================================
 // assets/js/app.js - Main Application Logic (FULL COMPLETE)
 // Supports Multi-Payment (Cash, Cheque, Bank, Credit) with Edit
@@ -3125,4 +3124,3 @@ checkAuth();
 console.log('🚀 JDMS v4.0 - Multi-Payment with KM Tracking');
 console.log('📦 Features: Multi-payment (Cash, Cheque, Bank, Credit), Route filter, Balance tracking, KM Tracking');
 console.log('⌨️ Keyboard shortcuts: Ctrl+T (Transactions), Ctrl+R (Reports), Ctrl+D (Dashboard)');
-```
